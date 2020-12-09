@@ -1,0 +1,391 @@
+---
+title: 'ICA: Artificial  Intelligence  Foundations(CIS4049-N)'
+author: "CHUKWUDI ONYEMA AJOKU"
+output: 
+  pdf_document: 
+    keep_tex: yes
+keep_tex: yes
+---
+
+# Understanding the factors affecting Salaries of Software Programmers around the world and what different programmers think about the future of AI using Machine Learning in R.
+
+<style>
+body {
+text-align: justify}
+</style>
+
+
+
+##### Data Source:
+I am going to be working on a set of data from a Stack Overflow Development Survey taken in 2018 which portrays the individual responses from members of stack overflow.
+Stack Overflow is an online community with lots of software developers who contribute to the community by sharing their programming knowledge, learning, as well as building their careers. 
+
+The particular dataset was downloaded from [kaggle](https://www.kaggle.com/stackoverflow/stack-overflow-2018-developer-survey). It is a 186MB sized data which has 98,855 rows and 129 columns. The columns represent answers to different questions asked in the Stack Overflow 2018 survey and have been explained in this [document](https://www.kaggle.com/stackoverflow/stack-overflow-2018-developer-survey?select=survey_results_schema.csv).
+
+My interest in this dataset is majorly fueled by my curiosity to get to know and identify trends in the software development community in Stack Overflow. Apart from that, the data is very rich and voluminous with plenty of data preprocessing and manipulations. Working on this dataset is an avenue for further practice and would give me the opportunity to solidify my skills in the use of R programming language for data cleaning, manipulation, visualisation, PCA and machine learning implementation.
+
+##### Aim:
+My goal is to determine what factors that could be affecting the incomes of the survey participants and to predict the salary of a programmer, given that I know a few features of the programmer. This is really important to me as I personally and genuinely want to find out the path to follow in order to make good money in the job industry as a programmer. I shall also find out how much R programmers earn on the average and also see if there are other programming languages to learn in order to increase my chances of a higher salary.
+
+##### Focus:
+This dataset has 129 columns. I do not desire to use all the columns and will therefore choose only those columns which will help me realise my goal. 
+I shall focus on features that mostly identify with the high salary earners. To identify these features, Firstly, I will need to visualise the salary levels against a few chosen features in the columns in my dataset. These features will be chosen based on common sense. For instance, I expect a feature like *years of programmer's experience* to have a relationship with the salaries they earn. I shall try to visualise these features against the salary earned and check the relationship. 
+
+For now, I will load the data in a variable called **full.dataset**
+Before I begin, let me invoke the packages I need.  
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+
+full.dataset <- read.csv("survey_results_public.csv")
+
+```
+
+I could view the summary of my dataset and the first 6 lines using the code below. 
+```{r eval = FALSE}
+print(summary(full.dataset)) # view summary
+print(head(full.dataset)) # view first six lines on the data
+```
+
+However, I will try not to run it as its display will mess up my document. Printing 129 columns on an A4 document looks rough and will use up my allowable number of words (4000). As I go on and try to visualise my data, Wherever the display is rough, I will not display it here. Wherever the display is extremely important, I will attach a screenshot instead. If you have any doubts, Please kindly test my codes using the .Rmd file. If you are viewing this file as a LATEX pdf document, please revert to the .Rmd file and follow me. 
+
+
+## **Choosing my columns:**
+
+```{r}
+dataset <- select(full.dataset, 
+                  Country, 
+                  Employment, 
+                  FormalEducation, 
+                  UndergradMajor, 
+                  CompanySize, 
+                  DevType, 
+                  YearsCoding, 
+                  YearsCodingProf, 
+                  ConvertedSalary, 
+                  TimeFullyProductive, 
+                  LanguageWorkedWith, 
+                  DatabaseWorkedWith, 
+                  PlatformWorkedWith, 
+                  FrameworkWorkedWith, 
+                  IDE, 
+                  OperatingSystem, 
+                  NumberMonitors, 
+                  Methodology, 
+                  VersionControl, 
+                  AIDangerous, 
+                  AIInteresting, 
+                  AIResponsible, 
+                  AIFuture)
+```
+
+Let us remove all the rows containing empty "NA" values from the selected dataset
+```{r}
+dataset <- na.omit(dataset)
+```
+
+Visualising our dataset table;
+```{r eval=FALSE}
+View(dataset)
+```
+
+As you can see, the data looks outrageously huge. they are all categorical values except one particular column called "ConvertedSalary". I will therefore make them all a factor and ensure that the "ConvertedSalary" column appears as numeric.
+
+```{r}
+dataset[, (colnames(dataset) != "ConvertedSalary")] <- 
+  lapply(dataset[, (colnames(dataset) != "ConvertedSalary")], as.factor)
+# Here, I select all columns except "ConvertedSalary" and made them all factors.
+
+print(class(dataset$ConvertedSalary)) 
+# to confirm the status of "ConvertedSalary" which should be numeric.
+```
+
+I will use the "summary" command to narrow down on each of the chosen columns in order to have a rough idea of its contents/factors because I am dealing with categorical data. I shall also clean each column as I introduce them.
+&nbsp;
+
+
+#### **Country:**
+##### In which country do you currently reside? 
+Again, there are lots of different countries. printing them all in my work will make it very untidy and can easily use up my work limit.
+```{r eval=FALSE}
+print(summary(dataset$Country))
+```
+
+
+#### **Employment:**
+##### Which of the following best describes your current employment status? 
+
+```{r}
+print(summary(dataset$Employment))
+```
+
+I do not wish to work with data of people who are unemployed. I had in mind to remove people who are unemployed but, at this point, we only have values for those who are employed full-time(14541) and part-time(504)) while the rest is zero(0) as seen above.
+
+
+
+#### **FormalEducation:**
+Which of the following best describes the highest level of formal education that you’ve completed?  
+
+```{r}
+print(summary(dataset$FormalEducation))
+```
+
+
+#### **UndergradMajor:**
+You previously indicated that you went to a college or university. Which of the following best describes your main field of study (aka 'major')  
+```{r}
+print(summary(dataset$UndergradMajor))
+```
+
+
+#### **CompanySize:**
+Approximately how many people are employed by the company or organization you work for?  
+```{r}
+print(summary(dataset$CompanySize))
+```
+
+
+#### **DevType:**
+Which of the following describe you? Please select all that apply.  
+```{r eval=FALSE}
+print(summary(dataset$DevType))
+```
+
+
+#### **YearsCoding:**
+Including any education, for how many years have you been coding?  
+```{r}
+print(summary(dataset$YearsCoding))
+```
+
+
+#### **YearsCodingProf:**
+For how many years have you coded professionally (as a part of your work)?  
+```{r}
+print(summary(dataset$YearsCodingProf))
+```
+
+
+#### **ConvertedSalary:**
+Salary converted to annual USD salaries using the exchange rate on 2018-01-18, assuming 12 working months and 50 working weeks.  
+```{r}
+print(summary(dataset$ConvertedSalary))
+```
+
+
+#### **TimeFullyProductive:**
+Suppose a new developer with four years of experience, including direct experience working with your company's main technical stack, joined your team tomorrow.  All other things being equal, how long would you expect it to take before they were fully productive and contributing at a typical level to your main code base?  
+```{r}
+print(summary(dataset$TimeFullyProductive))
+```
+
+
+#### **LanguageWorkedWith:**
+Which of the following programming, scripting, and markup languages have you done extensive development work in over the past year, and which do you want to work in over the next year?  (If you both worked with the language and want to continue to do so, please check both boxes in that row.)  
+```{r eval=FALSE}
+print(summary(dataset$LanguageWorkedWith))
+```
+
+
+#### **DatabaseWorkedWith:**
+Which of the following database environments have you done extensive development work in over the past year, and which do you want to work in over the next year?   (If you both worked with the database and want to continue to do so, please check both boxes in that row.)  
+```{r eval=FALSE}
+print(summary(dataset$DatabaseWorkedWith))
+```
+
+
+#### **PlatformWorkedWith:**
+Which of the following platforms have you done extensive development work for over the past year?   (If you both developed for the platform and want to continue to do so, please check both boxes in that row.)  
+```{r eval=FALSE}
+print(summary(dataset$PlatformWorkedWith))
+```
+
+
+#### **FrameworkWorkedWith:**
+Which of the following libraries, frameworks, and tools have you done extensive development work in over the past year, and which do you want to work in over the next year?  
+```{r eval=FALSE}
+print(summary(dataset$FrameworkWorkedWith))
+```
+
+
+
+#### **IDE:**
+Which development environment(s) do you use regularly?  Please check all that apply.  
+```{r eval=FALSE}
+print(summary(dataset$IDE))
+```
+
+
+#### **OperatingSystem**
+What is the primary operating system in which you work?  
+```{r}
+print(summary(dataset$OperatingSystem))
+```
+
+
+#### **NumberMonitors:**
+How many monitors are set up at your workstation?  
+```{r}
+print(summary(dataset$NumberMonitors))
+```
+
+
+#### **Methodology:**
+Which of the following methodologies do you have experience working in?  
+```{r eval=FALSE}
+print(summary(dataset$Methodology))
+```
+
+
+#### **VersionControl:**
+What version control systems do you use regularly? Please select all that apply.  
+```{r eval=FALSE}
+print(summary(dataset$VersionControl))
+```
+
+
+#### **AIDangerous:**
+What do you think is the most dangerous aspect of increasingly advanced AI technology?  
+```{r}
+print(summary(dataset$AIDangerous))
+```
+
+
+#### **AIInteresting:**
+What do you think is the most exciting aspect of increasingly advanced AI technology?  
+```{r}
+print(summary(dataset$AIInteresting))
+```
+
+
+#### **AIResponsible:**
+Whose primary responsibility is it to consider the ramifications of increasingly advanced AI technology?  
+```{r}
+print(summary(dataset$AIResponsible))
+```
+
+
+#### **AIFuture:**
+Overall, what's your take on the future of artificial intelligence?
+
+```{r}
+print(summary(dataset$AIFuture))
+```
+
+
+Display our dataset
+```{r eval=FALSE}
+print(dataset)
+```
+
+
+
+# Visualising the data.
+
+Let us find out if there are any coorelations between my chosen columns and the salaries.
+
+## Visualising "Countries" against "ConvertedSalary":
+
+```{r fig.height = 20, fig.width = 15}
+
+ggplot(dataset, aes(x = reorder(as.factor(Country), ConvertedSalary), y = ConvertedSalary)) +  
+ geom_point() +
+ labs(x = "Countries", 
+      y = "Salary in USD",
+      title = "Salaries of countries") + 
+ coord_flip()
+
+```
+
+
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = reorder(FormalEducation, ConvertedSalary), y = ConvertedSalary)) +  
+ geom_point() + 
+ labs(x = "Formal Education", 
+      y = "Salaries",
+      title = "Salaries by Education") + 
+ theme(axis.text.x = element_text(angle = 50,    
+                                  hjust = 1)) 
+
+```
+
+
+#UndergradMajor vs. Converted Salary
+
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = reorder(UndergradMajor, ConvertedSalary), y = ConvertedSalary)) +  
+ geom_point() + 
+ labs(x = "Formal Education", 
+      y = "Salaries",
+      title = "Salaries by Education") + 
+ theme(axis.text.x = element_text(angle = 65,    
+                                  hjust = 1)) 
+
+```
+
+
+
+
+```{r}
+fish.outet <- function(column, separator){
+# This function takes a column of a dataframe and a separator and returns a wider
+# list of Yeses and Nos.
+# If the column looks like "Java;JavaScript;CSS", it will separate into other 
+# columns with corresponding yes or no.
+
+  
+ variables <- list()  
+ # we initialise our list which will contain all possible options.
+ 
+ columnnew <- data.frame()[1:NROW(column), ]
+ # we intialise out columns as well
+ 
+ for(rows in column){
+  row.as.list <- strsplit(rows, toString(separator))[[1]]
+  # here, we have converted a row into a list
+  
+  for(item in row.as.list){
+   if (!(item %in% variables)){
+   variables <-append(variables, item)
+   # here, we append the items in the row.list into our initialised list while
+   # eliminating repetitions.
+  }
+  }
+ }
+ # we now have all the individual elements in the list stored in "variables"
+ 
+ 
+ columnnew$Mod <- paste(column, toString(separator), sep="")
+ # Now, we create a column which contains exactly the elements we are working 
+ # with, except that this time, we want the rows to terminate with the 
+ # separator. this is very necessary to enable us identify the last word.
+ # without doing this, Differentiating between "C" and "Cobol", "C++", "C#" will
+ # be difficult as "C" is contained in them as well. same can be said of 
+ # differentiating between "Java" and "JavaScript"
+ 
+ for(i in variables){
+  columnnew[i] <- ifelse(grepl(paste(toString(i), ";", sep=""), 
+                               columnnew$Mod, fixed = TRUE), "Yes", "No")
+  # Now, I have created new columns to achieve my purpose as defined in my 
+  # function creation.
+  }
+ return(columnnew)
+}
+
+egbe <- fish.outet(dataset$FrameworkWorkedWith, ";")
+View(egbe)
+
+```
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+
+
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
