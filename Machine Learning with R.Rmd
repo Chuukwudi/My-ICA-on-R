@@ -334,7 +334,7 @@ ggplot(dataset,
 
 
 ```{r}
-fish.outet <- function(column, separator){
+fish.out <- function(column, separator){
 # This function takes a column of a dataframe and a separator and returns a wider
 # list of Yeses and Nos.
 # If the column looks like "Java;JavaScript;CSS", it will separate into other 
