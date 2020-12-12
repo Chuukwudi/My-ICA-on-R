@@ -1,10 +1,10 @@
 ---
 title: 'ICA: Artificial  Intelligence  Foundations(CIS4049-N)'
 author: "CHUKWUDI ONYEMA AJOKU"
-output: 
-  pdf_document: 
+output:
+  pdf_document:
     keep_tex: yes
-keep_tex: yes
+  word_document: default
 ---
 
 # Understanding the factors affecting Salaries of Software Programmers around the world and what different programmers think about the future of AI using Machine Learning in R.
@@ -37,6 +37,8 @@ Before I begin, let me invoke the packages I need.
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(scales)
+library(treemapify)
 ```
 
 
@@ -60,15 +62,13 @@ However, I will try not to run it as its display will mess up my document. Print
 ```{r}
 dataset <- select(full.dataset, 
                   Country, 
-                  Employment, 
-                  FormalEducation, 
+                  Employment,
                   UndergradMajor, 
                   CompanySize, 
                   DevType, 
                   YearsCoding, 
                   YearsCodingProf, 
                   ConvertedSalary, 
-                  TimeFullyProductive, 
                   LanguageWorkedWith, 
                   DatabaseWorkedWith, 
                   PlatformWorkedWith, 
@@ -84,10 +84,12 @@ dataset <- select(full.dataset,
                   AIFuture)
 ```
 
-Let us remove all the rows containing empty "NA" values from the selected dataset
+Let us remove all the rows containing empty "NA" values from the selected dataset and in situations where one person might fill the survey twice, to reduce redundancy, let us make sure that no same row occurs more than once.
 ```{r}
-dataset <- na.omit(dataset)
+dataset <- na.omit(dataset) # eliminate the NAs
+dataset <- unique(dataset)  # remove double entries.
 ```
+
 
 Visualising our dataset table;
 ```{r eval=FALSE}
@@ -106,6 +108,8 @@ print(class(dataset$ConvertedSalary))
 ```
 
 I will use the "summary" command to narrow down on each of the chosen columns in order to have a rough idea of its contents/factors because I am dealing with categorical data. I shall also clean each column as I introduce them.
+
+Despite having converted the needed columns to factors, that is not enough. There are some specific columns which we will need to factor in levels, in an orderly manner as they appear. Columns like "CompanySize", "YearsCoding", "YearsCodingProf" and "NumberMonitors" need to have ordered in consecutive levels as it will help us in our visualisation.
 &nbsp;
 
 
@@ -127,15 +131,6 @@ print(summary(dataset$Employment))
 I do not wish to work with data of people who are unemployed. I had in mind to remove people who are unemployed but, at this point, we only have values for those who are employed full-time(14541) and part-time(504)) while the rest is zero(0) as seen above.
 
 
-
-#### **FormalEducation:**
-Which of the following best describes the highest level of formal education that you’ve completed?  
-
-```{r}
-print(summary(dataset$FormalEducation))
-```
-
-
 #### **UndergradMajor:**
 You previously indicated that you went to a college or university. Which of the following best describes your main field of study (aka 'major')  
 ```{r}
@@ -148,7 +143,23 @@ Approximately how many people are employed by the company or organization you wo
 ```{r}
 print(summary(dataset$CompanySize))
 ```
+This column needs to be ordered. let me properly order this in levels.
 
+```{r}
+dataset$CompanySize <- factor(dataset$CompanySize, 
+                              order=TRUE,
+                              levels = c("Fewer than 10 employees",
+                                         "10 to 19 employees",
+                                         "20 to 99 employees",
+                                         "100 to 499 employees",
+                                         "500 to 999 employees",
+                                         "1,000 to 4,999 employees",
+                                         "5,000 to 9,999 employees",
+                                         "10,000 or more employees"))
+
+str(dataset$CompanySize)
+```
+The output showing "Ord.factor" shows that the factor levels have been ordered.
 
 #### **DevType:**
 Which of the following describe you? Please select all that apply.  
@@ -162,6 +173,24 @@ Including any education, for how many years have you been coding?
 ```{r}
 print(summary(dataset$YearsCoding))
 ```
+This Column needs to be ordered in levels.
+
+```{r}
+dataset$YearsCoding <- factor(dataset$YearsCoding, 
+                              order=TRUE,
+                              levels = c("0-2 years",
+                                         "3-5 years",
+                                         "6-8 years",
+                                         "9-11 years",
+                                         "12-14 years",
+                                         "15-17 years",
+                                         "18-20 years",
+                                         "21-23 years",
+                                         "24-26 years",
+                                         "27-29 years",
+                                         "30 or more years"))
+str(dataset$YearsCoding)
+```
 
 
 #### **YearsCodingProf:**
@@ -170,18 +199,28 @@ For how many years have you coded professionally (as a part of your work)?
 print(summary(dataset$YearsCodingProf))
 ```
 
+We also need to arrange it's factors in levels
+``` {r}
+dataset$YearsCodingProf <- factor(dataset$YearsCodingProf, 
+                                  order=TRUE, 
+                                  levels = c("0-2 years",
+                                             "3-5 years",
+                                             "6-8 years",
+                                             "9-11 years",
+                                             "12-14 years",
+                                             "15-17 years",
+                                             "18-20 years",
+                                             "21-23 years",
+                                             "24-26 years",
+                                             "27-29 years",
+                                             "30 or more years"))
+str(dataset$YearsCodingProf)
+```
 
 #### **ConvertedSalary:**
 Salary converted to annual USD salaries using the exchange rate on 2018-01-18, assuming 12 working months and 50 working weeks.  
 ```{r}
 print(summary(dataset$ConvertedSalary))
-```
-
-
-#### **TimeFullyProductive:**
-Suppose a new developer with four years of experience, including direct experience working with your company's main technical stack, joined your team tomorrow.  All other things being equal, how long would you expect it to take before they were fully productive and contributing at a typical level to your main code base?  
-```{r}
-print(summary(dataset$TimeFullyProductive))
 ```
 
 
@@ -232,6 +271,17 @@ print(summary(dataset$OperatingSystem))
 How many monitors are set up at your workstation?  
 ```{r}
 print(summary(dataset$NumberMonitors))
+```
+Let us order it in levels.
+```{r}
+dataset$NumberMonitors <- factor(dataset$NumberMonitors, 
+                                  order=TRUE, 
+                                  levels = c( "1",
+                                              "2",
+                                              "3",
+                                              "4",
+                                              "More than 4"))
+str(dataset$NumberMonitors)
 ```
 
 
@@ -293,7 +343,7 @@ Let us find out if there are any coorelations between my chosen columns and the 
 
 ```{r fig.height = 20, fig.width = 15}
 
-ggplot(dataset, aes(x = reorder(as.factor(Country), ConvertedSalary), y = ConvertedSalary)) +  
+ggplot(dataset, aes(x = Country, y = ConvertedSalary)) +  
  geom_point() +
  labs(x = "Countries", 
       y = "Salary in USD",
@@ -303,89 +353,346 @@ ggplot(dataset, aes(x = reorder(as.factor(Country), ConvertedSalary), y = Conver
 ```
 
 
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = reorder(FormalEducation, ConvertedSalary), y = ConvertedSalary)) +  
- geom_point() + 
- labs(x = "Formal Education", 
-      y = "Salaries",
-      title = "Salaries by Education") + 
- theme(axis.text.x = element_text(angle = 50,    
-                                  hjust = 1)) 
-
-```
 
 
 #UndergradMajor vs. Converted Salary
 
 ```{r fig.height = 10, fig.width = 10}
 ggplot(dataset,
-       aes(x = reorder(UndergradMajor, ConvertedSalary), y = ConvertedSalary)) +  
+       aes(x = UndergradMajor, y = ConvertedSalary)) +  
  geom_point() + 
- labs(x = "Formal Education", 
+ labs(x = "Undergraduate Major", 
       y = "Salaries",
-      title = "Salaries by Education") + 
- theme(axis.text.x = element_text(angle = 65,    
+      title = "Salaries by Undergraduate Major") + 
+ theme(axis.text.x = element_text(angle = 67,    
                                   hjust = 1)) 
 
 ```
 
 
 
+# CompanySize vs ConvertedSalary
+
+
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset, aes(CompanySize, ConvertedSalary)) +
+  geom_violin() + geom_jitter(height = 1, width = 0.1) +
+  labs(x = "Company Size", 
+      y = "Salaries",
+      title = "Salaries by Company Size") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.5)) 
+```
+
+# YearsCoding vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = YearsCoding, y = ConvertedSalary)) +  
+ geom_point(aes(colour = YearsCoding)) + 
+ labs(x = "Years of Coding", 
+      y = "Salaries",
+      title = "Salaries by Years of Coding") + 
+ theme(axis.text.x = element_text(angle = 65,    
+                                  hjust = 1)) 
+```
+
+
+# YearsCodingProf vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = YearsCodingProf, y = ConvertedSalary)) +  
+ geom_point(aes(colour = YearsCodingProf)) + 
+ labs(x = "Years of Coding Profession", 
+      y = "Salaries",
+      title = "Salaries by Years of Coding Profession") + 
+ theme(axis.text.x = element_text(angle = 65,    
+                                  hjust = 0.5)) 
+```
+
+#NumberMonitors vs Converted Salary
+
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = NumberMonitors, y = ConvertedSalary)) +  
+ geom_point(aes(colour = NumberMonitors)) + 
+ labs(x = "Number of Monitors", 
+      y = "Salaries",
+      title = "Salaries by Number of Monitors")
+ 
+```
+
+# AIDangerous vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = AIDangerous, y = ConvertedSalary)) +  
+ geom_point(aes(colour = AIDangerous)) + 
+ labs(x = "AI Dangerous", 
+      y = "Salaries",
+      title = "Salaries by AIDangerous") + 
+ theme(axis.text.x = element_text(angle = 65,    
+                                  hjust = 1)) 
+```
+
+
+# AIInteresting vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = AIInteresting, y = ConvertedSalary)) +  
+ geom_point(aes(colour = AIInteresting)) + 
+ labs(x = "AIInteresting", 
+      y = "Salaries",
+      title = "Salaries by AIIntersting") + 
+ theme(axis.text.x = element_text(angle = 65,    
+                                  hjust = 0.7)) 
+```
+
+
+
+# AIResponsible vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = AIResponsible, y = ConvertedSalary)) +  
+ geom_point(aes()) + 
+ labs(x = "AIResponsible", 
+      y = "Salaries",
+      title = "Salaries by AIResponsible") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.5)) 
+```
+
+
+# AIFuture vs. Converted Salary
+```{r fig.height = 10, fig.width = 10}
+ggplot(dataset,
+       aes(x = AIFuture, y = ConvertedSalary)) +  
+ geom_point() + 
+ labs(x = "AIFuture", 
+      y = "Salaries",
+      title = "Salaries by AIFuture") + 
+ theme(axis.text.x = element_text(angle = 40,    
+                                  hjust = 0.5)) 
+```
+
+
+Having visualised most of my columns, There are still a few left untouched. They are; "DevType", "LanguageWorkedWith", "DatabaseWorkedWith", "PlatformWorkedWith", "IDE", "OperatingSystem", "Methodology" and "VersionControl".
+
+These Columns are quite problematic because they are not properly arranged. One column contains more than one variable, separated by a ";". 
+Below, Let us visualise two rows belonging to one of the columns and see what is happenning. 
 
 ```{r}
-fish.out <- function(column, separator){
-# This function takes a column of a dataframe and a separator and returns a wider
-# list of Yeses and Nos.
-# If the column looks like "Java;JavaScript;CSS", it will separate into other 
-# columns with corresponding yes or no.
+head(dataset$DevType, 2)
+```
+
+The first row contains 4 variables namely "Back-end developer", "Database administrator", "Front-end developer" and "Full-stack developer". This means that a particular survey respondent knows those four DevTypes. How do we separate this?
+
+I shall create some functions which will be used to convert columns of such nature to one-hot-encoding. 
+
+# What is one-hot-encoding?
+One-hot-encoding is just a way of representing norminal categorical variables into a continuous variable using zeros and ones.
+
+I shall show you in detail but let us create our function below.
+
+```{r}
+do.one.hot <- function(column, separator){
+# This function takes a single column of a dataframe and a separator and returns 
+# a wider list of 1 and 0
+# If the column has variables that look like "Java;JavaScript;CSS", it will perform 
+# one-hot-encoding on that column and return the encoded dataframe.
 
   
  variables <- list()  
- # we initialise our list which will contain all possible options.
+ # we initialise our list which will contain all possible options available under
+ # our chosen column.
  
  columnnew <- data.frame()[1:NROW(column), ]
- # we intialise out columns as well
+ # we intialise out columns as well. We are simply saying that we want a dataframe
+ # with same length as whichever data that is passed into our funtion.
  
- for(rows in column){
+ for(rows in column){ 
+  # just iterating through a column
+  
   row.as.list <- strsplit(rows, toString(separator))[[1]]
-  # here, we have converted a row into a list
+  # here, we have converted the row into a list separated by the separator
   
   for(item in row.as.list){
+    # for each item in the list from the row in the column
    if (!(item %in% variables)){
+     # if item not in our originally created list called "variable"
    variables <-append(variables, item)
    # here, we append the items in the row.list into our initialised list while
-   # eliminating repetitions.
+   # eliminating repetitions. 
   }
   }
  }
- # we now have all the individual elements in the list stored in "variables"
+ # we now have all the possible variable in the column stored in "variables"
  
  
  columnnew$Mod <- paste(column, toString(separator), sep="")
  # Now, we create a column which contains exactly the elements we are working 
  # with, except that this time, we want the rows to terminate with the 
  # separator. this is very necessary to enable us identify the last word.
- # without doing this, Differentiating between "C" and "Cobol", "C++", "C#" will
- # be difficult as "C" is contained in them as well. same can be said of 
- # differentiating between "Java" and "JavaScript"
+ # without doing this, Differentiating between "C", "Cobol", "C++", and "C#" will
+ # be difficult as "C" is contained in them as well. Same can be said of 
+ # differentiating between "Java" and "JavaScript" but including the separator
+ # shows where our variable ended.
  
  for(i in variables){
   columnnew[i] <- ifelse(grepl(paste(toString(i), ";", sep=""), 
-                               columnnew$Mod, fixed = TRUE), "Yes", "No")
+                               columnnew$Mod, fixed = TRUE), 1, 0)
   # Now, I have created new columns to achieve my purpose as defined in my 
   # function creation.
   }
- return(columnnew)
+ return(columnnew[, -1])
 }
 
-egbe <- fish.outet(dataset$FrameworkWorkedWith, ";")
-View(egbe)
+```
+
+I shall now test me test my newly created function.
+```{r}
+DevType1 <- do.one.hot(dataset$DevType, ";")
+View(head(DevType1))
+```
+
+Now, that we have the biggest data cleaning problem out of the way, let us visualise those columns we left behind.
+To do that, we need another function that will give us the frequencies of each occurrence.
+```{r}
+get.freq.table <- function(dataset){
+  # this function takes in a one-hot-encoded dataset and return the frequencies 
+  # of each variable.
+  Type <- list() # we initialise our list where we will store the column names
+  Freq <- list() # we initialise another list to store the frequency .
+  for (i in colnames(dataset)){
+    # we iterate through our column names
+   
+    Type <- unlist(append(Type, i))
+   # we append the names of the columns to our initialised list
+   
+    # we use the unlist() function to make it a vector
+   
+    Freq <- unlist(append(Freq, sum(dataset[, i])))
+    # we append the frequency of occurence to our Freq list by summing the columns
+  }
+  return(data.frame(Type, Freq)) # we return the contents of our lists as a dataframe.
+}
 
 ```
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+Now, for the rest of our unvisualised columns, We shall utilise the two functions above to do so. These functions will also come in handy when we finally one-hot-encode our whole data in before training it using a suiltable machine learning algorithm.
+
+
+# Visuaising DevType
+
+```{r fig.height = 10, fig.width = 10}
+DevType1 <- do.one.hot(dataset$DevType, ";")
+DevTypeFreq <- get.freq.table(DevType1)
+
+# Let us add a new column to show percentages
+PlotDevType <- DevTypeFreq %>% 
+  mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%")) 
+
+# we plot the bars as percentages, in decending order with bar labels
+ggplot(PlotDevType, aes(x = reorder(Type, -pct),
+                        y = pct)) +  
+  geom_bar(stat = "identity", 
+           fill = "indianred3",
+           color = "black") + 
+  geom_text(aes(label = pctlabel),
+            vjust = -0.25) + 
+  scale_y_continuous(labels = percent) + 
+  labs(x = "Type", y = "Percent", title  = "Participants by DevType")+
+  theme(axis.text.x = element_text(angle = 40,    hjust = 1))
+```
+
+# Visualising LanguageWorkedWith
+
+```{r fig.height = 10, fig.width = 10}
+LanguageWorkedWith1 <- do.one.hot(dataset$LanguageWorkedWith, ";")
+LanguageWorkedWithFreq <- get.freq.table(LanguageWorkedWith1)
+
+# create a treemap with tile labels
+
+ggplot(LanguageWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) + 
+  geom_treemap() +  geom_treemap_text(color = "white", place = "centre") + 
+  labs(title = "Visualising LanguageWorkedWith") + theme(legend.position = "none")
+```
+
+#Visualising IDE
+
+```{r fig.height = 10, fig.width = 10}
+IDE1 <- do.one.hot(dataset$IDE, ";")
+IDEFreq <- get.freq.table(IDE1)
+# Let us add a new column to show percentages
+PlotIDE <- IDEFreq %>% 
+  mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%")) 
+
+# we plot the bars as percentages, in descending order with bar labels
+ggplot(PlotIDE, aes(x = reorder(Type, -pct),
+                        y = pct)) +  
+  geom_bar(stat = "identity", 
+           fill = "blue",
+           color = "red") + 
+  geom_text(aes(label = pctlabel),
+            vjust = -0.25) + 
+  scale_y_continuous(labels = percent) + 
+  labs(x = "Type", y = "Percent", title  = "Participants by IDE")+
+  theme(axis.text.x = element_text(angle = 40,    
+                                  hjust = 1))
+```
+What a shame! my favorite rstudio has 1%.
+
+
+# Visualising DatabaseWorkedWith
+
+```{r fig.height = 10, fig.width = 10}
+DatabaseWorkedWith1 <- do.one.hot(dataset$DatabaseWorkedWith, ";")
+DatabaseWorkedWithFreq <- get.freq.table(DatabaseWorkedWith1)
+# create a treemap with tile labels
+
+ggplot(DatabaseWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) + 
+  geom_treemap() +  geom_treemap_text(color = "white", place = "centre") + 
+  labs(title = "Visualising DatabaseWorkedWith") + theme(legend.position = "none")
+```
+
+# Visualising OperatingSystem
+
+```{r fig.height = 6, fig.width = 6}
+OperatingSystem1 <- do.one.hot(dataset$OperatingSystem, ";")
+OperatingSystemFreq <- get.freq.table(OperatingSystem1)
+
+# create a pie  chart with slice labels
+PlotOperatingSystemFreq <- OperatingSystemFreq %>% 
+   arrange(desc(Type)) %>% 
+   mutate(prop = round(Freq * 100 / sum(Freq), 1),
+          lab.ypos = cumsum(prop) - 0.5 * prop) 
+PlotOperatingSystemFreq$label <- paste0(PlotOperatingSystemFreq$Type, "\n",
+                                        round(PlotOperatingSystemFreq$prop),"%")
+ggplot(PlotOperatingSystemFreq,aes(x = "", y = prop, fill = Type)) +
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  geom_text(aes(y = lab.ypos, label = label), color = "black") +
+  coord_polar("y",start = 0,  direction = -1) +
+  theme_void() +
+  theme(legend.position = "TRUE") +
+  labs(title = "Participants by Operating System")
+
+```
+
+
+# Visualising PlatformWorkedWith
+```{r fig.height = 10, fig.width = 10}
+PlatformWorkedWith1 <- do.one.hot(dataset$PlatformWorkedWith, ";")
+PlatformWorkedWithFreq <- get.freq.table(PlatformWorkedWith1)
+# create a treemap with tile labels
+
+ggplot(PlatformWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) + 
+  geom_treemap() +  geom_treemap_text(color = "white", place = "centre") + 
+  labs(title = "Visualising PlatformWorkedWith") + theme(legend.position = "none")
+```
 
 
 
+# Visualising OperatingSystem
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+
+```
+
