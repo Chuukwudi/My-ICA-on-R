@@ -39,6 +39,7 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(treemapify)
+library(gridExtra)
 ```
 
 
@@ -126,6 +127,7 @@ print(summary(dataset$Country))
 
 ```{r}
 print(summary(dataset$Employment))
+
 ```
 
 I do not wish to work with data of people who are unemployed. I had in mind to remove people who are unemployed but, at this point, we only have values for those who are employed full-time(14541) and part-time(504)) while the rest is zero(0) as seen above.
@@ -366,7 +368,6 @@ ggplot(dataset,
       title = "Salaries by Undergraduate Major") + 
  theme(axis.text.x = element_text(angle = 67,    
                                   hjust = 1)) 
-
 ```
 
 
@@ -425,13 +426,15 @@ ggplot(dataset,
 ```{r fig.height = 10, fig.width = 10}
 ggplot(dataset,
        aes(x = AIDangerous, y = ConvertedSalary)) +  
- geom_point(aes(colour = AIDangerous)) + 
+ geom_point(aes(colour = AIDangerous), show.legend = FALSE) + 
  labs(x = "AI Dangerous", 
       y = "Salaries",
       title = "Salaries by AIDangerous") + 
  theme(axis.text.x = element_text(angle = 65,    
                                   hjust = 1)) 
 ```
+
+ 
 
 
 # AIInteresting vs. Converted Salary
@@ -495,7 +498,7 @@ I shall show you in detail but let us create our function below.
 ```{r}
 do.one.hot <- function(column, separator){
 # This function takes a single column of a dataframe and a separator and returns 
-# a wider list of 1 and 0
+#wider column of 1 and 0
 # If the column has variables that look like "Java;JavaScript;CSS", it will perform 
 # one-hot-encoding on that column and return the encoded dataframe.
 
@@ -550,7 +553,7 @@ do.one.hot <- function(column, separator){
 I shall now test me test my newly created function.
 ```{r}
 DevType1 <- do.one.hot(dataset$DevType, ";")
-View(head(DevType1))
+#View(head(DevType1))
 ```
 
 Now, that we have the biggest data cleaning problem out of the way, let us visualise those columns we left behind.
@@ -594,13 +597,16 @@ PlotDevType <- DevTypeFreq %>%
 ggplot(PlotDevType, aes(x = reorder(Type, -pct),
                         y = pct)) +  
   geom_bar(stat = "identity", 
-           fill = "indianred3",
-           color = "black") + 
+           fill = "cornsilk2",
+           color = "cadetblue") + 
   geom_text(aes(label = pctlabel),
             vjust = -0.25) + 
   scale_y_continuous(labels = percent) + 
-  labs(x = "Type", y = "Percent", title  = "Participants by DevType")+
-  theme(axis.text.x = element_text(angle = 40,    hjust = 1))
+  labs(x = "Type", 
+       y = "Percent", 
+       title  = "Participants by DevType") +
+  theme(axis.text.x = element_text(angle = 40,
+                                   hjust = 1))
 ```
 
 # Visualising LanguageWorkedWith
@@ -629,12 +635,12 @@ PlotIDE <- IDEFreq %>%
 ggplot(PlotIDE, aes(x = reorder(Type, -pct),
                         y = pct)) +  
   geom_bar(stat = "identity", 
-           fill = "blue",
-           color = "red") + 
+           fill = "cadetblue",
+           color = "cadetblue1") + 
   geom_text(aes(label = pctlabel),
             vjust = -0.25) + 
   scale_y_continuous(labels = percent) + 
-  labs(x = "Type", y = "Percent", title  = "Participants by IDE")+
+  labs(x = "Type of IDE", y = "Percent", title  = "Participants by IDE")+
   theme(axis.text.x = element_text(angle = 40,    
                                   hjust = 1))
 ```
@@ -659,15 +665,19 @@ ggplot(DatabaseWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) +
 OperatingSystem1 <- do.one.hot(dataset$OperatingSystem, ";")
 OperatingSystemFreq <- get.freq.table(OperatingSystem1)
 
-# create a pie  chart with slice labels
+# create a pie  chart with slice labels and percentages
 PlotOperatingSystemFreq <- OperatingSystemFreq %>% 
    arrange(desc(Type)) %>% 
    mutate(prop = round(Freq * 100 / sum(Freq), 1),
           lab.ypos = cumsum(prop) - 0.5 * prop) 
+
+# we append our percentages to the names 
 PlotOperatingSystemFreq$label <- paste0(PlotOperatingSystemFreq$Type, "\n",
                                         round(PlotOperatingSystemFreq$prop),"%")
-ggplot(PlotOperatingSystemFreq,aes(x = "", y = prop, fill = Type)) +
-  geom_bar(width = 1, stat = "identity", color = "black") +
+
+# we plot
+ggplot(PlotOperatingSystemFreq, aes(x = "", y = prop, fill = Type)) +
+  geom_bar(width = 1, stat = "identity", color = "yellow") +
   geom_text(aes(y = lab.ypos, label = label), color = "black") +
   coord_polar("y",start = 0,  direction = -1) +
   theme_void() +
@@ -690,9 +700,102 @@ ggplot(PlatformWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) +
 
 
 
-# Visualising OperatingSystem
+# Visualising Methodology
 
-```{r}
+```{r fig.height = 4.5, fig.width = 10, warning = FALSE}
+Methodology1 <- do.one.hot(dataset$Methodology, ";")
+MethodologyFreq <- get.freq.table(Methodology1)
+
+# create a pie  chart with slice labels and percentages
+PlotMethodologyFreq <- MethodologyFreq %>% 
+   arrange(desc(Type)) %>% 
+   mutate(prop = round(Freq * 100 / sum(Freq), 1),
+          lab.ypos = cumsum(prop) - 0.5 * prop) 
+
+# we append our percentages to the names 
+PlotMethodologyFreq$label <- paste0(PlotMethodologyFreq$Type, " ",
+                                        round(PlotMethodologyFreq$prop),"%  ")
+
+# we plot
+ggplot(PlotMethodologyFreq, aes(x = "", y = prop, fill = label)) +
+  geom_bar(width = 1, stat = "identity", color = "yellow") +
+  coord_polar("y",start = 0,  direction = -1) +
+  theme_void() +
+  labs(title = "Participants by Methodology")
 
 ```
+# Visualising VersionControl of choice
+```{r fig.height = 7, fig.width = 10}
+VersionControl1 <- do.one.hot(dataset$VersionControl, ";")
+VersionControlFreq <- get.freq.table(VersionControl1)
+
+# Let us add a new column to show percentages
+PlotVersionControl <- VersionControlFreq %>% 
+  mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%")) 
+
+# we plot the bars as percentages, in descending order with bar labels
+ggplot(PlotIDE, aes(x = reorder(Type, pct),
+                        y = pct)) +  
+  geom_bar(stat = "identity", 
+           fill = "deepskyblue4",
+           color = "cornsilk3") + 
+  scale_y_continuous(labels = percent) + 
+  labs(x = "Version Control Type", y = "Percent", title  = "Participants by VersionControl")+
+  coord_flip()
+```
+
+# Preparing our table for Machine Learning.
+
+There are a handful of  powerful machine learning algorithms. However, to make the best use of these algorithms, it is very important that we transform the data into the desired format. One of the common steps for doing this is encoding the data, which enhances the computational power and the efficiency of the algorithms.
+
+To prepare our table for machine learning, I would like to examine my choices. My Target variable (ConvertedSalaray) which I want to predict is a continuous variable while the rest of my variables are categorical. It is best practice to convert categorical variables to continous variables if your target variable is continous in nature. This is because the Machine Learning algorithms that are used to predict continous variables perform better with continous inputs.
+
+to convert my data, I am going to categorise them into 2. 
+The Ordinal variables and
+The Norminal variables.
+
+
+My Ordinal variables are those variable with ordered factor. They are CompanySize, YearsCoding, YearsCodingProf, NumberMonitors. I am going to encode them using a technique called "Integer Encoding". This involve equating the variables themselves to the number of their factor level.
+
+The Norminal variables are my variables which do not have order. All my variables are norminal variables except CompanySize, YearsCoding, YearsCodingProf, NumberMonitors and lastly, ConvertedSalary which is the only truly continuous variable I have in my data. The method of encoding the nominal variable will be different from the way I will encode my ordinal data. With my norminal data, I will use one hot encoding to encode them. I have addressed this technique earlier.
+
+Encoding Employment
+
+```{r}
+summary(dataset$Employment)
+```
+This shows that Employment column only contains 2 levels. Encoding this will be very easy. We simply make "Employed full-time" = 1 and "Employed part-time" = 0.
+```{r}
+dataset$Employment <- ifelse(dataset$Employment == "Employed full-time", 1, 0)
+summary(dataset$Employment)
+```
+
+Now, let us encode the columns with ordinal variables.
+
+```{r}
+dataset$CompanySize <- data.matrix(dataset$CompanySize)
+dataset$YearsCoding <- data.matrix(dataset$YearsCoding)
+dataset$YearsCodingProf <- data.matrix(dataset$YearsCodingProf)
+dataset$NumberMonitors <- data.matrix(dataset$NumberMonitors)
+View(dataset)
+
+```
+
+
+ddd
+```{r}
+View(dataset$CompanySize)
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
