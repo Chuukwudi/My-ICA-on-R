@@ -40,6 +40,8 @@ library(ggplot2)
 library(scales)
 library(treemapify)
 library(gridExtra)
+library(Boruta)
+library(mlbench)
 ```
 
 
@@ -64,7 +66,6 @@ However, I will try not to run it as its display will mess up my document. Print
 dataset <- select(full.dataset, 
                   Country, 
                   Employment,
-                  UndergradMajor, 
                   CompanySize, 
                   DevType, 
                   YearsCoding, 
@@ -131,13 +132,6 @@ print(summary(dataset$Employment))
 ```
 
 I do not wish to work with data of people who are unemployed. I had in mind to remove people who are unemployed but, at this point, we only have values for those who are employed full-time(14541) and part-time(504)) while the rest is zero(0) as seen above.
-
-
-#### **UndergradMajor:**
-You previously indicated that you went to a college or university. Which of the following best describes your main field of study (aka 'major')  
-```{r}
-print(summary(dataset$UndergradMajor))
-```
 
 
 #### **CompanySize:**
@@ -353,23 +347,6 @@ ggplot(dataset, aes(x = Country, y = ConvertedSalary)) +
  coord_flip()
 
 ```
-
-
-
-
-#UndergradMajor vs. Converted Salary
-
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = UndergradMajor, y = ConvertedSalary)) +  
- geom_point() + 
- labs(x = "Undergraduate Major", 
-      y = "Salaries",
-      title = "Salaries by Undergraduate Major") + 
- theme(axis.text.x = element_text(angle = 67,    
-                                  hjust = 1)) 
-```
-
 
 
 # CompanySize vs ConvertedSalary
@@ -765,36 +742,111 @@ Encoding Employment
 summary(dataset$Employment)
 ```
 This shows that Employment column only contains 2 levels. Encoding this will be very easy. We simply make "Employed full-time" = 1 and "Employed part-time" = 0.
+
 ```{r}
+rawdataset <- dataset 
+# I just want to save my dataset to a variable incase I need to make some 
+# reference in the future.
+
 dataset$Employment <- ifelse(dataset$Employment == "Employed full-time", 1, 0)
 summary(dataset$Employment)
+
+#View(do.one.hot(rawdataset$VersionControl, separator = ";"))
 ```
 
-Now, let us encode the columns with ordinal variables.
+Now, let us encode the columns that contain ordinal variables.
 
 ```{r}
-dataset$CompanySize <- data.matrix(dataset$CompanySize)
-dataset$YearsCoding <- data.matrix(dataset$YearsCoding)
-dataset$YearsCodingProf <- data.matrix(dataset$YearsCodingProf)
-dataset$NumberMonitors <- data.matrix(dataset$NumberMonitors)
-View(dataset)
-
+dataset$CompanySize <- as.numeric(factor(dataset$CompanySize, levels = unique(dataset$CompanySize), exclude = NULL))
+dataset$YearsCoding <- as.numeric(factor(dataset$YearsCoding, levels = unique(dataset$YearsCoding), exclude = NULL))
+dataset$YearsCodingProf <- as.numeric(factor(dataset$YearsCodingProf, levels = unique(dataset$YearsCodingProf), exclude = NULL))
+dataset$NumberMonitors <- as.numeric(factor(dataset$NumberMonitors, levels = unique(dataset$NumberMonitors), exclude = NULL))
 ```
 
-
-ddd
+Now, let us encode the column that contains the Norminal data. We will begin by creating a function in order to eliminate repetition.
 ```{r}
-View(dataset$CompanySize)
+One.hot <- function(dataset, column){
+ # This funtion takes in two variables, a dataset and a column and returns a
+ # a dataset which has that column one hot encoded.
+ 
+ string <- paste("~", toString(column))
+ # We use our column to create a string which will depend on the input.
+ 
+ dum <- dummyVars(string, data = dataset)
+ # we dummify our dataset.
+ 
+ trsf <- data.frame(predict(dum, newdata = dataset))
+ # we get the one-hot encoded dataframe partaining to the column
+ 
+ new.data <- cbind(dataset, trsf)
+ # we bind the new dataframe to our original dataframe
+ 
+ new.data <- select(new.data, -c(toString(column)))
+ #we remove the dataframe we just converted.
+ return(new.data)
+}
+```
+
+Now that we are done creating our function, let us go ahead and apply one hot encoding and get what we want.
+```{r}
+dataset <- One.hot(dataset = dataset, column = "Country")
+dataset <- One.hot(dataset = dataset, column = "AIDangerous")
+dataset <- One.hot(dataset = dataset, column = "AIInteresting")
+dataset <- One.hot(dataset = dataset, column = "AIResponsible")
+dataset <- One.hot(dataset = dataset, column = "AIFuture")
+```
+
+Now, the non numeric columns we have left are those columns that are formated in a specific way such as the "DevType" column. Let us look at the first 2 rows.
+```{r}
+print(head(dataset$DevType, 2))
+```
+I will use the function "do.one.hot" which I initially created during my visualisation process to encode my datset.
+Here is a function to encode, combine, delete column and return a one hot encoded dataset.
+```{r}
+One.hotter <- function(dataset, column, dataset.with.column){
+  onehot <- do.one.hot(column = dataset.with.column, separator = ";")
+  new.data <- cbind(dataset, onehot)
+  new.data <- select(new.data, -c(toString(column)))
+  return(new.data)
+}
+
+```
+Now, let us encode the rest of our data.
+```{r}
+dataset <- One.hotter(dataset = dataset, column = "DevType", dataset.with.column = dataset$DevType)
+dataset <- One.hotter(dataset = dataset, column = "LanguageWorkedWith", dataset.with.column = dataset$LanguageWorkedWith)
+dataset <- One.hotter(dataset = dataset, column = "FrameworkWorkedWith", dataset.with.column = dataset$FrameworkWorkedWith)
+dataset <- One.hotter(dataset = dataset, column = "DatabaseWorkedWith", dataset.with.column = dataset$DatabaseWorkedWith)
+dataset <- One.hotter(dataset = dataset, column = "PlatformWorkedWith", dataset.with.column = dataset$PlatformWorkedWith)
+dataset <- One.hotter(dataset = dataset, column = "IDE", dataset.with.column = dataset$IDE)
+dataset <- One.hotter(dataset = dataset, column = "OperatingSystem", dataset.with.column = dataset$OperatingSystem)
+dataset <- One.hotter(dataset = dataset, column = "Methodology", dataset.with.column = dataset$Methodology)
+dataset <- One.hotter(dataset = dataset, column = "VersionControl", dataset.with.column = dataset$VersionControl)
+#View(dataset)
+```
+
+Now we have 364 columns of data. all numeric
+
+```{r}
+PCA.worthy <- dataset
+#View(PCA.worthy)
 ```
 
 
+Now, we will scale the data
 
+```{r}
+rmPCA.worthy <- subset(PCA.worthy, select = -c(ConvertedSalary))
+rmPCA.worthy <- unique(rmPCA.worthy)# remove double entries.
+rme <- scale(rmPCA.worthy)
+#View(rmPCA.worthy)
+#feature selection
+set.seed(111)
+boruta <- Boruta(ConvertedSalary ~., data = PCA.worthy, doTrace = 2)
 
-
-
-
-
-
+# SELECT IMPORTANT VARIABLES ONLY.
+# SECT FIRST FIVE COUNTRIES, ELIMINATE RUBBISH VARIABLES.
+```
 
 
 
