@@ -2,12 +2,14 @@
 title: 'ICA: Artificial  Intelligence  Foundations(CIS4049-N)'
 author: "CHUKWUDI ONYEMA AJOKU"
 output:
+  html_document:
+    df_print: paged
+  word_document: default
   pdf_document:
     keep_tex: yes
-  word_document: default
 ---
 
-# Understanding the factors affecting Salaries of Software Programmers around the world and what different programmers think about the future of AI using Machine Learning in R.
+# What is the best Operating System?
 
 <style>
 body {
@@ -22,29 +24,38 @@ Stack Overflow is an online community with lots of software developers who contr
 
 The particular dataset was downloaded from [kaggle](https://www.kaggle.com/stackoverflow/stack-overflow-2018-developer-survey). It is a 186MB sized data which has 98,855 rows and 129 columns. The columns represent answers to different questions asked in the Stack Overflow 2018 survey and have been explained in this [document](https://www.kaggle.com/stackoverflow/stack-overflow-2018-developer-survey?select=survey_results_schema.csv).
 
-My interest in this dataset is majorly fueled by my curiosity to get to know and identify trends in the software development community in Stack Overflow. Apart from that, the data is very rich and voluminous with plenty of data preprocessing and manipulations. Working on this dataset is an avenue for further practice and would give me the opportunity to solidify my skills in the use of R programming language for data cleaning, manipulation, visualisation, PCA and machine learning implementation.
+My interest in this dataset is majorly fueled by my curiosity to get to know and identify trends in the software development community in Stack Overflow. Apart from that, the data is very rich and voluminous with plenty of data preprocessing and manipulations which would give me joy carrying out. Working on this dataset is an avenue for further practice and would give me the opportunity to solidify my skills in the use of R programming language for data cleaning, manipulation, visualisation and machine learning implementation.
 
 ##### Aim:
-My goal is to determine what factors that could be affecting the incomes of the survey participants and to predict the salary of a programmer, given that I know a few features of the programmer. This is really important to me as I personally and genuinely want to find out the path to follow in order to make good money in the job industry as a programmer. I shall also find out how much R programmers earn on the average and also see if there are other programming languages to learn in order to increase my chances of a higher salary.
+My goal is to determine what factors that could be affecting the choice of Operating System (OS) of the survey participants and to predict what type of Operating System one is likely to use as a programmer, given that I know a few features about the programmer. It has always been an online war when topics comparing OS are discussed in online forums like reddit, quora, stackoverflow, etc. Those who use Linux like myself tend to value linux better over windows. However, I personally believe that the choice of programminmg languages you use, softwares, etc. should determine what type of OS to choose. For example, someone whose work is centered on the use of Power Bi Desktop application is more likely to choose windows over linux since the software is not yet available for Linux systems. This is really important to me as I try to put an end to this argument once and for all using my model.
 
 ##### Focus:
 This dataset has 129 columns. I do not desire to use all the columns and will therefore choose only those columns which will help me realise my goal. 
-I shall focus on features that mostly identify with the high salary earners. To identify these features, Firstly, I will need to visualise the salary levels against a few chosen features in the columns in my dataset. These features will be chosen based on common sense. For instance, I expect a feature like *years of programmer's experience* to have a relationship with the salaries they earn. I shall try to visualise these features against the salary earned and check the relationship. 
+I shall focus on features that are most likely to affect the choice of programming languages. To identify these features, Firstly, I will need to visualise the programming language against a few chosen features in the columns in my dataset. These features will be chosen based on common sense. For instance, I expect a feature like *programming language worked with* to have a relationship with the the OS. I shall try to visualise these features with the OS and check the relationship. There is a function pair.panels() from the psch package that will allow me to  do this. I will highlight it in the end.
 
 For now, I will load the data in a variable called **full.dataset**
 Before I begin, let me invoke the packages I need.  
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-library(scales)
-library(treemapify)
-library(gridExtra)
-library(Boruta)
-library(mlbench)
+library(dplyr)   # for data manipulation
+library(ggplot2) # to plot and visualise data
+library(scales)  # for graphs
+library(caret)
+library(naivebayes)
+library(e1071)
+library(forcats) # has a function fct_infreq() which can be used to sort graphs 
+# in ascending or descending order.
+library(psych)   #will use pairs.panels() to visualise my variables
+library(treemapify)  # for treemaps
+#library(gridExtra)
+#library(Boruta)
+#library(mlbench)
+library(randomForest)
+library(janitor) #to handle illegal names
+library(doSNOW) # this library will allow me utilise my full computational power (parallel computing) when doing my cross validation which is likely to take up so much time. 
 ```
 
-
+Then read the CSV file.
 ```{r}
 
 full.dataset <- read.csv("survey_results_public.csv")
@@ -63,30 +74,25 @@ However, I will try not to run it as its display will mess up my document. Print
 ## **Choosing my columns:**
 
 ```{r}
-dataset <- select(full.dataset, 
-                  Country, 
-                  Employment,
-                  CompanySize, 
-                  DevType, 
-                  YearsCoding, 
-                  YearsCodingProf, 
-                  ConvertedSalary, 
-                  LanguageWorkedWith, 
-                  DatabaseWorkedWith, 
-                  PlatformWorkedWith, 
-                  FrameworkWorkedWith, 
-                  IDE, 
-                  OperatingSystem, 
-                  NumberMonitors, 
-                  Methodology, 
-                  VersionControl, 
-                  AIDangerous, 
-                  AIInteresting, 
-                  AIResponsible, 
-                  AIFuture)
+my.columns <- c('CompanySize', 
+                'DevType', 
+                'YearsCoding', 
+                'YearsCodingProf', 
+                'LanguageWorkedWith', 
+                'DatabaseWorkedWith', 
+                'PlatformWorkedWith', 
+                'FrameworkWorkedWith', 
+                'IDE', 
+                'OperatingSystem', 
+                'NumberMonitors', 
+                'Methodology', 
+                'VersionControl'
+                  )
+
+dataset <- select(full.dataset, all_of(my.columns))
 ```
 
-Let us remove all the rows containing empty "NA" values from the selected dataset and in situations where one person might fill the survey twice, to reduce redundancy, let us make sure that no same row occurs more than once.
+Let us remove all the rows containing the empty "NA" values from the selected dataset and in situations where one person might fill the survey twice, to reduce redundancy, let us make sure that no same row occurs more than once.
 ```{r}
 dataset <- na.omit(dataset) # eliminate the NAs
 dataset <- unique(dataset)  # remove double entries.
@@ -95,44 +101,20 @@ dataset <- unique(dataset)  # remove double entries.
 
 Visualising our dataset table;
 ```{r eval=FALSE}
-View(dataset)
+View(dataset) 
 ```
 
-As you can see, the data looks outrageously huge. they are all categorical values except one particular column called "ConvertedSalary". I will therefore make them all a factor and ensure that the "ConvertedSalary" column appears as numeric.
-
+As you can see, the data looks outrageously huge. they are all categorical values. I will therefore make them all a factor.
 ```{r}
-dataset[, (colnames(dataset) != "ConvertedSalary")] <- 
-  lapply(dataset[, (colnames(dataset) != "ConvertedSalary")], as.factor)
-# Here, I select all columns except "ConvertedSalary" and made them all factors.
-
-print(class(dataset$ConvertedSalary)) 
-# to confirm the status of "ConvertedSalary" which should be numeric.
+dataset[my.columns] <- lapply(dataset[my.columns], factor) 
+# Here, I select all columns and make them all factors.
+str(dataset)
 ```
 
-I will use the "summary" command to narrow down on each of the chosen columns in order to have a rough idea of its contents/factors because I am dealing with categorical data. I shall also clean each column as I introduce them.
+I will use the "summary()", "head()" and the "str()" command to narrow down on each of the chosen columns in order to have a rough idea of its contents. I shall also clean each column as I introduce them by narrating the question that was asked for that column in the survey.
 
-Despite having converted the needed columns to factors, that is not enough. There are some specific columns which we will need to factor in levels, in an orderly manner as they appear. Columns like "CompanySize", "YearsCoding", "YearsCodingProf" and "NumberMonitors" need to have ordered in consecutive levels as it will help us in our visualisation.
+Despite having converted the needed columns to factors, that is not enough. There are some specific columns which we will need to factor in levels, in an orderly manner as they appear. Columns like "CompanySize", "YearsCoding", "YearsCodingProf" and "NumberMonitors" need to be ordered in consecutive levels as it will help us in our visualisation.
 &nbsp;
-
-
-#### **Country:**
-##### In which country do you currently reside? 
-Again, there are lots of different countries. printing them all in my work will make it very untidy and can easily use up my work limit.
-```{r eval=FALSE}
-print(summary(dataset$Country))
-```
-
-
-#### **Employment:**
-##### Which of the following best describes your current employment status? 
-
-```{r}
-print(summary(dataset$Employment))
-
-```
-
-I do not wish to work with data of people who are unemployed. I had in mind to remove people who are unemployed but, at this point, we only have values for those who are employed full-time(14541) and part-time(504)) while the rest is zero(0) as seen above.
-
 
 #### **CompanySize:**
 Approximately how many people are employed by the company or organization you work for?  
@@ -154,15 +136,16 @@ dataset$CompanySize <- factor(dataset$CompanySize,
                                          "10,000 or more employees"))
 
 str(dataset$CompanySize)
+
 ```
 The output showing "Ord.factor" shows that the factor levels have been ordered.
 
 #### **DevType:**
-Which of the following describe you? Please select all that apply.  
-```{r eval=FALSE}
-print(summary(dataset$DevType))
+Which of the following describes you? Please select all that apply.  
+```{r}
+print(head(dataset$DevType))
 ```
-
+The column is in a mess because it contains irregular number of items and will need real cleaning. The computer can not work with  that.
 
 #### **YearsCoding:**
 Including any education, for how many years have you been coding?  
@@ -195,7 +178,7 @@ For how many years have you coded professionally (as a part of your work)?
 print(summary(dataset$YearsCodingProf))
 ```
 
-We also need to arrange it's factors in levels
+We also need to arrange it's factors in levels and give appropriate names.
 ``` {r}
 dataset$YearsCodingProf <- factor(dataset$YearsCodingProf, 
                                   order=TRUE, 
@@ -210,49 +193,45 @@ dataset$YearsCodingProf <- factor(dataset$YearsCodingProf,
                                              "24-26 years",
                                              "27-29 years",
                                              "30 or more years"))
+
 str(dataset$YearsCodingProf)
 ```
 
-#### **ConvertedSalary:**
-Salary converted to annual USD salaries using the exchange rate on 2018-01-18, assuming 12 working months and 50 working weeks.  
-```{r}
-print(summary(dataset$ConvertedSalary))
-```
 
 
 #### **LanguageWorkedWith:**
 Which of the following programming, scripting, and markup languages have you done extensive development work in over the past year, and which do you want to work in over the next year?  (If you both worked with the language and want to continue to do so, please check both boxes in that row.)  
-```{r eval=FALSE}
-print(summary(dataset$LanguageWorkedWith))
+```{r}
+print(head(dataset$LanguageWorkedWith))
 ```
-
+This column is also a mess.
 
 #### **DatabaseWorkedWith:**
 Which of the following database environments have you done extensive development work in over the past year, and which do you want to work in over the next year?   (If you both worked with the database and want to continue to do so, please check both boxes in that row.)  
-```{r eval=FALSE}
-print(summary(dataset$DatabaseWorkedWith))
+```{r}
+print(head(dataset$DatabaseWorkedWith))
 ```
 
 
 #### **PlatformWorkedWith:**
 Which of the following platforms have you done extensive development work for over the past year?   (If you both developed for the platform and want to continue to do so, please check both boxes in that row.)  
-```{r eval=FALSE}
-print(summary(dataset$PlatformWorkedWith))
+```{r}
+print(head(dataset$PlatformWorkedWith))
 ```
 
 
 #### **FrameworkWorkedWith:**
 Which of the following libraries, frameworks, and tools have you done extensive development work in over the past year, and which do you want to work in over the next year?  
-```{r eval=FALSE}
-print(summary(dataset$FrameworkWorkedWith))
+```{r}
+print(head(dataset$FrameworkWorkedWith))
 ```
 
 
 
 #### **IDE:**
 Which development environment(s) do you use regularly?  Please check all that apply.  
-```{r eval=FALSE}
-print(summary(dataset$IDE))
+```{r}
+print(head(dataset$IDE))
 ```
 
 
@@ -283,199 +262,111 @@ str(dataset$NumberMonitors)
 
 #### **Methodology:**
 Which of the following methodologies do you have experience working in?  
-```{r eval=FALSE}
-print(summary(dataset$Methodology))
+```{r}
+print(head(dataset$Methodology))
 ```
-
+This column is also in a mess.
 
 #### **VersionControl:**
 What version control systems do you use regularly? Please select all that apply.  
-```{r eval=FALSE}
-print(summary(dataset$VersionControl))
-```
-
-
-#### **AIDangerous:**
-What do you think is the most dangerous aspect of increasingly advanced AI technology?  
 ```{r}
-print(summary(dataset$AIDangerous))
+print(tail(dataset$VersionControl))
 ```
-
-
-#### **AIInteresting:**
-What do you think is the most exciting aspect of increasingly advanced AI technology?  
-```{r}
-print(summary(dataset$AIInteresting))
-```
-
-
-#### **AIResponsible:**
-Whose primary responsibility is it to consider the ramifications of increasingly advanced AI technology?  
-```{r}
-print(summary(dataset$AIResponsible))
-```
-
-
-#### **AIFuture:**
-Overall, what's your take on the future of artificial intelligence?
-
-```{r}
-print(summary(dataset$AIFuture))
-```
-
-
-Display our dataset
-```{r eval=FALSE}
-print(dataset)
-```
+Also messy.
 
 
 
 # Visualising the data.
 
-Let us find out if there are any coorelations between my chosen columns and the salaries.
-
-## Visualising "Countries" against "ConvertedSalary":
-
-```{r fig.height = 20, fig.width = 15}
-
-ggplot(dataset, aes(x = Country, y = ConvertedSalary)) +  
- geom_point() +
- labs(x = "Countries", 
-      y = "Salary in USD",
-      title = "Salaries of countries") + 
- coord_flip()
-
+Let me find out if there is any variance in my data. 
+```{r fig.height =10, fig.width = 11}
+pairs.panels(dataset)
 ```
 
+The above graph shows the relationship summary between all my variables. The diabonal is schows the name of the variable and its histogram. To see the corresponding graph or correlation coefficient of any two variables, imagine a vertical line on the cell of the first variable and also an imaginary horizontal line on the second variable. Where these two lines meet on the left is the relationship plot and wherever they meet on the right is the correlation coefficient.
 
-# CompanySize vs ConvertedSalary
+From the plot above, It is quite clear that all my variables are categorical in nature.
+
+I shall now carry out with indiidual visualisations. I prefer to use a stacked histogram as it really gives me an idea of proportion between two variables (frequency (as with histograms), and the x axis)
 
 
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset, aes(CompanySize, ConvertedSalary)) +
-  geom_violin() + geom_jitter(height = 1, width = 0.1) +
-  labs(x = "Company Size", 
-      y = "Salaries",
-      title = "Salaries by Company Size") + 
+# CompanySize vs OperatingSystem
+
+```{r, message = FALSE, fig.height =9, fig.width = 11}
+ggplot(dataset, aes(x = CompanySize, fill = OperatingSystem)) +
+ geom_histogram(stat="count")+
+ labs(x = "CompanySize", 
+      y = "Count",
+      title = "OperatingSystem and CompanySize") + 
  theme(axis.text.x = element_text(angle = 45,    
-                                  hjust = 0.5)) 
+                                  hjust = 0.8)) 
+
 ```
 
-# YearsCoding vs. Converted Salary
+# YearsCoding vs. OperatingSystem
 ```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = YearsCoding, y = ConvertedSalary)) +  
- geom_point(aes(colour = YearsCoding)) + 
- labs(x = "Years of Coding", 
-      y = "Salaries",
-      title = "Salaries by Years of Coding") + 
- theme(axis.text.x = element_text(angle = 65,    
-                                  hjust = 1)) 
+ggplot(dataset, aes(x = YearsCoding, fill = OperatingSystem)) +
+ geom_histogram(stat="count")+
+ labs(x = "YearsCoding", 
+      y = "Count",
+      title = "OperatingSystem and YearsCoding") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8)) 
 ```
-
-
-# YearsCodingProf vs. Converted Salary
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = YearsCodingProf, y = ConvertedSalary)) +  
- geom_point(aes(colour = YearsCodingProf)) + 
- labs(x = "Years of Coding Profession", 
-      y = "Salaries",
-      title = "Salaries by Years of Coding Profession") + 
- theme(axis.text.x = element_text(angle = 65,    
-                                  hjust = 0.5)) 
-```
-
-#NumberMonitors vs Converted Salary
-
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = NumberMonitors, y = ConvertedSalary)) +  
- geom_point(aes(colour = NumberMonitors)) + 
- labs(x = "Number of Monitors", 
-      y = "Salaries",
-      title = "Salaries by Number of Monitors")
- 
-```
-
-# AIDangerous vs. Converted Salary
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = AIDangerous, y = ConvertedSalary)) +  
- geom_point(aes(colour = AIDangerous), show.legend = FALSE) + 
- labs(x = "AI Dangerous", 
-      y = "Salaries",
-      title = "Salaries by AIDangerous") + 
- theme(axis.text.x = element_text(angle = 65,    
-                                  hjust = 1)) 
-```
-
  
 
-
-# AIInteresting vs. Converted Salary
+# YearsCodingProf vs. OperatingSystem
 ```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = AIInteresting, y = ConvertedSalary)) +  
- geom_point(aes(colour = AIInteresting)) + 
- labs(x = "AIInteresting", 
-      y = "Salaries",
-      title = "Salaries by AIIntersting") + 
- theme(axis.text.x = element_text(angle = 65,    
-                                  hjust = 0.7)) 
-```
-
-
-
-# AIResponsible vs. Converted Salary
-```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = AIResponsible, y = ConvertedSalary)) +  
- geom_point(aes()) + 
- labs(x = "AIResponsible", 
-      y = "Salaries",
-      title = "Salaries by AIResponsible") + 
+ggplot(dataset, aes(x = YearsCodingProf, fill = OperatingSystem)) +
+ geom_histogram(stat="count")+
+ labs(x = "YearsCodingProf", 
+      y = "Count",
+      title = "OperatingSystem and YearsCodingProf") + 
  theme(axis.text.x = element_text(angle = 45,    
-                                  hjust = 0.5)) 
+                                  hjust = 0.8))  
 ```
 
 
-# AIFuture vs. Converted Salary
+#NumberMonitors vs OperatingSystem
+
 ```{r fig.height = 10, fig.width = 10}
-ggplot(dataset,
-       aes(x = AIFuture, y = ConvertedSalary)) +  
- geom_point() + 
- labs(x = "AIFuture", 
-      y = "Salaries",
-      title = "Salaries by AIFuture") + 
- theme(axis.text.x = element_text(angle = 40,    
-                                  hjust = 0.5)) 
+ggplot(dataset, aes(x = NumberMonitors, fill = OperatingSystem)) +
+ geom_histogram(stat="count")+
+ labs(x = "NumberMonitors", 
+      y = "Count",
+      title = "OperatingSystem and NumberMonitors") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+ 
 ```
+'DevType', 
+                
+               
 
 
-Having visualised most of my columns, There are still a few left untouched. They are; "DevType", "LanguageWorkedWith", "DatabaseWorkedWith", "PlatformWorkedWith", "IDE", "OperatingSystem", "Methodology" and "VersionControl".
 
+Having visualised some of my columns, There are still more left untouched. They are; "DevType", "LanguageWorkedWith", "DatabaseWorkedWith", "FrameworkWorkedWith", "PlatformWorkedWith", "IDE", "Methodology" and "VersionControl".
+ 
 These Columns are quite problematic because they are not properly arranged. One column contains more than one variable, separated by a ";". 
-Below, Let us visualise two rows belonging to one of the columns and see what is happenning. 
+Below, Let us visualise two rows belonging to one of the columns and see what is happening. 
 
 ```{r}
 head(dataset$DevType, 2)
 ```
 
-The first row contains 4 variables namely "Back-end developer", "Database administrator", "Front-end developer" and "Full-stack developer". This means that a particular survey respondent knows those four DevTypes. How do we separate this?
+The Second row contains 4 variables namely "Back-end developer", "Database administrator", "Front-end developer" and "Full-stack developer". This means that a particular survey respondent knows those four DevTypes. How do we separate this?
 
 I shall create some functions which will be used to convert columns of such nature to one-hot-encoding. 
 
 # What is one-hot-encoding?
-One-hot-encoding is just a way of representing norminal categorical variables into a continuous variable using zeros and ones.
+One-hot-encoding is just a way of representing nominal categorical variables into a continuous variable using zeros and ones.
 
 I shall show you in detail but let us create our function below.
 
 ```{r}
 do.one.hot <- function(column, separator){
-# This function takes a single column of a dataframe and a separator and returns 
-#wider column of 1 and 0
+# This function takes a single column of a dataframe and a separator 
+# (in this case ";") and returns wider column of 1 and 0
 # If the column has variables that look like "Java;JavaScript;CSS", it will perform 
 # one-hot-encoding on that column and return the encoded dataframe.
 
@@ -485,8 +376,8 @@ do.one.hot <- function(column, separator){
  # our chosen column.
  
  columnnew <- data.frame()[1:NROW(column), ]
- # we intialise out columns as well. We are simply saying that we want a dataframe
- # with same length as whichever data that is passed into our funtion.
+ # we intialise our columns as well. We are simply saying that we want a dataframe
+ # with same length as whichever data that is passed into our function.
  
  for(rows in column){ 
   # just iterating through a column
@@ -496,9 +387,11 @@ do.one.hot <- function(column, separator){
   
   for(item in row.as.list){
     # for each item in the list from the row in the column
+   
    if (!(item %in% variables)){
      # if item not in our originally created list called "variable"
-   variables <-append(variables, item)
+   
+    variables <-append(variables, item)
    # here, we append the items in the row.list into our initialised list while
    # eliminating repetitions. 
   }
@@ -508,50 +401,145 @@ do.one.hot <- function(column, separator){
  
  
  columnnew$Mod <- paste(column, toString(separator), sep="")
- # Now, we create a column which contains exactly the elements we are working 
- # with, except that this time, we want the rows to terminate with the 
- # separator. this is very necessary to enable us identify the last word.
- # without doing this, Differentiating between "C", "Cobol", "C++", and "C#" will
- # be difficult as "C" is contained in them as well. Same can be said of 
- # differentiating between "Java" and "JavaScript" but including the separator
- # shows where our variable ended.
+ # Now, we create a new column appended to our empty initialised column which 
+ # contains exactly the elements we are working with, except that this time, we 
+ # want the rows to terminate with the separator. this is very necessary to 
+ # enable us identify the last word. without doing this, Differentiating 
+ # between "C", "Cobol", "C++", and "C#" will be difficult as "C" is contained 
+ # in them as well. But we can differentiate "C;" from "Cobol;" and "Java;" from
+ # "JavaScript;" especially when this is the last item.
+ # including the separator shows where our variable ended.
  
  for(i in variables){
   columnnew[i] <- ifelse(grepl(paste(toString(i), ";", sep=""), 
                                columnnew$Mod, fixed = TRUE), 1, 0)
   # Now, I have created new columns to achieve my purpose as defined in my 
-  # function creation.
-  }
+  # function creation. The grepl will search through each row in the 
+  # columnnew$Mod and where there is a match, it will create a new column and 
+  # fill it with 1 and 0 if other wise.
+ }
+ 
+ # We return the new columns apart from the first one columnnew$Mod
  return(columnnew[, -1])
 }
 
 ```
 
-I shall now test me test my newly created function.
+I shall now test my newly created function.
 ```{r}
 DevType1 <- do.one.hot(dataset$DevType, ";")
 #View(head(DevType1))
 ```
 
 Now, that we have the biggest data cleaning problem out of the way, let us visualise those columns we left behind.
-To do that, we need another function that will give us the frequencies of each occurrence.
+To do that, we convert them back to long format with a function that will return the full data set converted in long format.
+
+```{r}
+hot.long <- function(column){
+ # This function will convert a mixed column, for example "Java;JavaScript;CSS" 
+ # to a column with its elements repeated side by side with the OperatingSystem 
+ # column
+ 
+ #get one hot encoded data and save it as one.hot
+ one.hot <- do.one.hot(column, ';')
+ 
+ # binds os column to one hot encoded. dataset[10] stands for the OperatingSystem
+ # column in the original dataset.
+ 
+ binded <- cbind(dataset[10], one.hot)
+ 
+ #initialise lists
+ os = list()
+ type = list()
+
+ # iterate through the rows
+ for(i in 1:nrow(binded)){
+  
+  #get name of Operating system per iteration
+  os.name = binded[i,1]
+  
+  #iterate through the column names
+  for(colum in colnames(binded)){
+   
+   #avoid the OS column
+   if(colum != "OperatingSystem"){
+    
+    # any other cell that has the value 1
+    if(binded[i, colum] == 1){
+     
+     # put name of operating system
+    os <- unlist(append(os, toString(os.name) ))
+    
+    # put the name of the column
+    type <- unlist(append(type, colum))
+    
+    }
+   }
+
+  }
+ }
+ #return a dataframe of the two vectors
+ return(data.frame(os, type))
+ 
+}
+
+
+```
+
+The above function takes about 30 seconds. My computer has intel core i7, 16gb of RAM and a speed of 2.6 gigahertz. Please, be patient with me.
+```{r}
+start.time <- Sys.time()
+devt <- hot.long(dataset$DevType)
+#View(devd)
+summary(devt)
+end.time <- Sys.time()
+print(end.time - start.time)
+```
+
+#Visualising DevType
+
+```{r fig.height = 10, fig.width = 10}
+ggplot(devt, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "DevType", 
+      y = "Count",
+      title = "OperatingSystem and DevType") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 1))
+ 
+```
+
+
+
+
+
+I really love the stacked column charts as they show me exactly what I want to see.However, I know you would want me to plot other different types of graphs. I will need another function that will give the frequencies of each occurrence. This will make it easier to show extra visualisations of my data.
 ```{r}
 get.freq.table <- function(dataset){
   # this function takes in a one-hot-encoded dataset and return the frequencies 
-  # of each variable.
+  # of each variable as a dataframe.
+  
+  # I will add a new column based on the counts from the parent column 
+ 
+ 
+ 
+ 
   Type <- list() # we initialise our list where we will store the column names
   Freq <- list() # we initialise another list to store the frequency .
+ 
   for (i in colnames(dataset)){
     # we iterate through our column names
    
     Type <- unlist(append(Type, i))
-   # we append the names of the columns to our initialised list
-   
+    # we append the names of the columns to our initialised list
     # we use the unlist() function to make it a vector
    
+    
     Freq <- unlist(append(Freq, sum(dataset[, i])))
     # we append the frequency of occurence to our Freq list by summing the columns
+    
   }
+  
   return(data.frame(Type, Freq)) # we return the contents of our lists as a dataframe.
 }
 
@@ -565,25 +553,26 @@ Now, for the rest of our unvisualised columns, We shall utilise the two function
 ```{r fig.height = 10, fig.width = 10}
 DevType1 <- do.one.hot(dataset$DevType, ";")
 DevTypeFreq <- get.freq.table(DevType1)
-
+                              
 # Let us add a new column to show percentages
-PlotDevType <- DevTypeFreq %>% 
-  mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%")) 
+PlotDevType <- DevTypeFreq %>%
+  mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%"))
 
-# we plot the bars as percentages, in decending order with bar labels
+# we plot the bars as percentages, in descending order with bar labels
 ggplot(PlotDevType, aes(x = reorder(Type, -pct),
-                        y = pct)) +  
-  geom_bar(stat = "identity", 
+                        y = pct)) +
+  geom_bar(stat = "identity",
            fill = "cornsilk2",
-           color = "cadetblue") + 
+           color = "cadetblue") +
   geom_text(aes(label = pctlabel),
-            vjust = -0.25) + 
-  scale_y_continuous(labels = percent) + 
-  labs(x = "Type", 
-       y = "Percent", 
+            vjust = -0.25) +
+  scale_y_continuous(labels = percent) +
+  labs(x = "DevType",
+       y = "Percent",
        title  = "Participants by DevType") +
   theme(axis.text.x = element_text(angle = 40,
                                    hjust = 1))
+
 ```
 
 # Visualising LanguageWorkedWith
@@ -599,6 +588,25 @@ ggplot(LanguageWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) +
   labs(title = "Visualising LanguageWorkedWith") + theme(legend.position = "none")
 ```
 
+
+
+My stacked Column Chart:
+Please be patient with me as this will take time. Took me 2.5 minutes.
+```{r fig.height = 10, fig.width = 10}
+start.time <- Sys.time()
+
+lww <- hot.long(dataset$LanguageWorkedWith)
+ggplot(lww, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "LanguageWorkedWith", 
+      y = "Count",
+      title = "OperatingSystem and LanguageWorkedWith") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+ 
+end.time <- Sys.time()
+print(end.time - start.time)
+```
 #Visualising IDE
 
 ```{r fig.height = 10, fig.width = 10}
@@ -621,9 +629,25 @@ ggplot(PlotIDE, aes(x = reorder(Type, -pct),
   theme(axis.text.x = element_text(angle = 40,    
                                   hjust = 1))
 ```
-What a shame! my favorite rstudio has 1%.
+What a pity! My favorite rstudio has just 1%.
 
+My stacked Column Chart:
 
+```{r fig.height = 10, fig.width = 10}
+start.time <- Sys.time()
+
+ide <- hot.long(dataset$IDE)
+ggplot(ide, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "IDE", 
+      y = "Count",
+      title = "OperatingSystem and IDE") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+
+end.time <- Sys.time()
+print(end.time - start.time)
+```
 # Visualising DatabaseWorkedWith
 
 ```{r fig.height = 10, fig.width = 10}
@@ -635,6 +659,22 @@ ggplot(DatabaseWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) +
   geom_treemap() +  geom_treemap_text(color = "white", place = "centre") + 
   labs(title = "Visualising DatabaseWorkedWith") + theme(legend.position = "none")
 ```
+
+Column Chart:
+```{r fig.height = 10, fig.width = 10}
+dbww <- hot.long(dataset$DatabaseWorkedWith)
+ggplot(dbww, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "DatabaseWorkedWith", 
+      y = "Count",
+      title = "OperatingSystem and DatabaseWorkedWith") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+ 
+```
+
+
+
 
 # Visualising OperatingSystem
 
@@ -675,7 +715,18 @@ ggplot(PlatformWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) +
   labs(title = "Visualising PlatformWorkedWith") + theme(legend.position = "none")
 ```
 
-
+Further,
+```{r fig.height = 10, fig.width = 10}
+pww <- hot.long(dataset$PlatformWorkedWith)
+ggplot(pww, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "PlatformWorkedWith", 
+      y = "Count",
+      title = "OperatingSystem and PlatformWorkedWith") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.9))
+ 
+```
 
 # Visualising Methodology
 
@@ -701,6 +752,52 @@ ggplot(PlotMethodologyFreq, aes(x = "", y = prop, fill = label)) +
   labs(title = "Participants by Methodology")
 
 ```
+
+further
+```{r fig.height = 10, fig.width = 10}
+methodologyy <- hot.long(dataset$Methodology)
+ggplot(methodologyy, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "Methodology", 
+      y = "Count",
+      title = "OperatingSystem and Methodology") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+ 
+```
+
+
+
+
+
+# Visualising FrameworkWorkedWith
+```{r fig.height = 10, fig.width = 10}
+FrameworkWorkedWith1 <- do.one.hot(dataset$FrameworkWorkedWith, ";")
+FrameworkWorkedWithFreq <- get.freq.table(FrameworkWorkedWith1)
+# create a treemap with tile labels
+
+ggplot(FrameworkWorkedWithFreq,aes(fill = Type, area = Freq, label = Type)) + 
+  geom_treemap() +  geom_treemap_text(color = "white", place = "centre") + 
+  labs(title = "Visualising FrameworkWorkedWith") + theme(legend.position = "none")
+```
+
+Further,
+```{r fig.height = 10, fig.width = 10}
+fww <- hot.long(dataset$FrameworkWorkedWith)
+ggplot(fww, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "FrameworkWorkedWith", 
+      y = "Count",
+      title = "OperatingSystem and FrameworkWorkedWith") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.9))
+ 
+```
+
+
+
+
+
 # Visualising VersionControl of choice
 ```{r fig.height = 7, fig.width = 10}
 VersionControl1 <- do.one.hot(dataset$VersionControl, ";")
@@ -711,106 +808,72 @@ PlotVersionControl <- VersionControlFreq %>%
   mutate(pct  = Freq / sum(Freq), pctlabel = paste0(round(pct*100), "%")) 
 
 # we plot the bars as percentages, in descending order with bar labels
-ggplot(PlotIDE, aes(x = reorder(Type, pct),
-                        y = pct)) +  
+ggplot(VersionControlFreq, aes(x = reorder(Type, Freq),
+                        y = Freq)) +  
   geom_bar(stat = "identity", 
            fill = "deepskyblue4",
            color = "cornsilk3") + 
   scale_y_continuous(labels = percent) + 
-  labs(x = "Version Control Type", y = "Percent", title  = "Participants by VersionControl")+
+  labs(x = "Version Control Type", y = "Frequency", title  = "Participants by VersionControl")+
   coord_flip()
 ```
 
+Further
+```{r fig.height = 10, fig.width = 10}
+vc <- hot.long(dataset$VersionControl)
+ggplot(vc, aes(x = fct_infreq(type), fill = os)) +
+ geom_histogram(stat="count")+
+ labs(x = "VersionControl", 
+      y = "Count",
+      title = "OperatingSystem and VersionControl") + 
+ theme(axis.text.x = element_text(angle = 45,    
+                                  hjust = 0.8))
+ 
+```
+
+
+Now that we are visualising our data, I shall now prepare the data to make it suitable for machine learning.
 # Preparing our table for Machine Learning.
 
 There are a handful of  powerful machine learning algorithms. However, to make the best use of these algorithms, it is very important that we transform the data into the desired format. One of the common steps for doing this is encoding the data, which enhances the computational power and the efficiency of the algorithms.
 
-To prepare our table for machine learning, I would like to examine my choices. My Target variable (ConvertedSalaray) which I want to predict is a continuous variable while the rest of my variables are categorical. It is best practice to convert categorical variables to continous variables if your target variable is continous in nature. This is because the Machine Learning algorithms that are used to predict continous variables perform better with continous inputs.
-
-to convert my data, I am going to categorise them into 2. 
+To prepare our table for machine learning, I would like to examine my choices. My Target variable (OperatingSystem) which I want to predict is a categorical variable as well as the rest of my variables. 
+To prepare my data, I am going to categorise them into 2. 
 The Ordinal variables and
-The Norminal variables.
+The Nominal variables.
 
 
-My Ordinal variables are those variable with ordered factor. They are CompanySize, YearsCoding, YearsCodingProf, NumberMonitors. I am going to encode them using a technique called "Integer Encoding". This involve equating the variables themselves to the number of their factor level.
+My Ordinal variables are those variable with ordered factor. They are CompanySize, YearsCoding, YearsCodingProf, NumberMonitors. I am going to leave them the way they are.
 
-The Norminal variables are my variables which do not have order. All my variables are norminal variables except CompanySize, YearsCoding, YearsCodingProf, NumberMonitors and lastly, ConvertedSalary which is the only truly continuous variable I have in my data. The method of encoding the nominal variable will be different from the way I will encode my ordinal data. With my norminal data, I will use one hot encoding to encode them. I have addressed this technique earlier.
+The Nominal variables are my variables which do not have order. The rest of my data are nominal. With my nominal data, I will use one hot encoding to encode them. I have addressed this technique earlier and I also created a function for that.
 
-Encoding Employment
 
-```{r}
-summary(dataset$Employment)
-```
-This shows that Employment column only contains 2 levels. Encoding this will be very easy. We simply make "Employed full-time" = 1 and "Employed part-time" = 0.
-
-```{r}
-rawdataset <- dataset 
-# I just want to save my dataset to a variable incase I need to make some 
-# reference in the future.
-
-dataset$Employment <- ifelse(dataset$Employment == "Employed full-time", 1, 0)
-summary(dataset$Employment)
-
-#View(do.one.hot(rawdataset$VersionControl, separator = ";"))
-```
-
-Now, let us encode the columns that contain ordinal variables.
-
-```{r}
-dataset$CompanySize <- as.numeric(factor(dataset$CompanySize, levels = unique(dataset$CompanySize), exclude = NULL))
-dataset$YearsCoding <- as.numeric(factor(dataset$YearsCoding, levels = unique(dataset$YearsCoding), exclude = NULL))
-dataset$YearsCodingProf <- as.numeric(factor(dataset$YearsCodingProf, levels = unique(dataset$YearsCodingProf), exclude = NULL))
-dataset$NumberMonitors <- as.numeric(factor(dataset$NumberMonitors, levels = unique(dataset$NumberMonitors), exclude = NULL))
-```
-
-Now, let us encode the column that contains the Norminal data. We will begin by creating a function in order to eliminate repetition.
-```{r}
-One.hot <- function(dataset, column){
- # This funtion takes in two variables, a dataset and a column and returns a
- # a dataset which has that column one hot encoded.
- 
- string <- paste("~", toString(column))
- # We use our column to create a string which will depend on the input.
- 
- dum <- dummyVars(string, data = dataset)
- # we dummify our dataset.
- 
- trsf <- data.frame(predict(dum, newdata = dataset))
- # we get the one-hot encoded dataframe partaining to the column
- 
- new.data <- cbind(dataset, trsf)
- # we bind the new dataframe to our original dataframe
- 
- new.data <- select(new.data, -c(toString(column)))
- #we remove the dataframe we just converted.
- return(new.data)
-}
-```
-
-Now that we are done creating our function, let us go ahead and apply one hot encoding and get what we want.
-```{r}
-dataset <- One.hot(dataset = dataset, column = "Country")
-dataset <- One.hot(dataset = dataset, column = "AIDangerous")
-dataset <- One.hot(dataset = dataset, column = "AIInteresting")
-dataset <- One.hot(dataset = dataset, column = "AIResponsible")
-dataset <- One.hot(dataset = dataset, column = "AIFuture")
-```
-
-Now, the non numeric columns we have left are those columns that are formated in a specific way such as the "DevType" column. Let us look at the first 2 rows.
+Now, let us encode the column that contains the Nominal data. We will begin by creating a function in order to eliminate code repetition. We will look at those columns that are formatted in a specific way such as the "DevType" column. Let us look at the first 2 rows.
 ```{r}
 print(head(dataset$DevType, 2))
 ```
-I will use the function "do.one.hot" which I initially created during my visualisation process to encode my datset.
-Here is a function to encode, combine, delete column and return a one hot encoded dataset.
+I will use the function "do.one.hot" which I initially created during my visualisation process to encode my dataset.
+Here is a function to encode, combine, remove column and return a one hot encoded dataset.
 ```{r}
+# define the funtion parameters
 One.hotter <- function(dataset, column, dataset.with.column){
+  
+  # one hot encoding
   onehot <- do.one.hot(column = dataset.with.column, separator = ";")
+  
+  # add the encoded column to the pre-existing data
   new.data <- cbind(dataset, onehot)
+  
+  # remove the column that has just been one hot encoded.
   new.data <- select(new.data, -c(toString(column)))
+  
+  # return the original column with the selected column converted to one hot 
+  # encoding
   return(new.data)
 }
 
 ```
+
 Now, let us encode the rest of our data.
 ```{r}
 dataset <- One.hotter(dataset = dataset, column = "DevType", dataset.with.column = dataset$DevType)
@@ -819,35 +882,312 @@ dataset <- One.hotter(dataset = dataset, column = "FrameworkWorkedWith", dataset
 dataset <- One.hotter(dataset = dataset, column = "DatabaseWorkedWith", dataset.with.column = dataset$DatabaseWorkedWith)
 dataset <- One.hotter(dataset = dataset, column = "PlatformWorkedWith", dataset.with.column = dataset$PlatformWorkedWith)
 dataset <- One.hotter(dataset = dataset, column = "IDE", dataset.with.column = dataset$IDE)
-dataset <- One.hotter(dataset = dataset, column = "OperatingSystem", dataset.with.column = dataset$OperatingSystem)
 dataset <- One.hotter(dataset = dataset, column = "Methodology", dataset.with.column = dataset$Methodology)
 dataset <- One.hotter(dataset = dataset, column = "VersionControl", dataset.with.column = dataset$VersionControl)
+
+```
+```{r}
 #View(dataset)
 ```
 
-Now we have 364 columns of data. all numeric
+Now we have 161 columns of data and the one hot encoded columns are all numeric. I want them to be factors as they will give me better prediction since this is a classification problem.
 
+
+Make all one hot encoded columns factors
 ```{r}
-PCA.worthy <- dataset
-#View(PCA.worthy)
+f.dataset <- dataset %>% mutate_if(is.numeric, as.factor)
+```
+check
+```{r}
+str(f.dataset)
 ```
 
 
-Now, we will scale the data
+161 is a large number of columns. I still need to reduce it be removing columns with near zero variance from my dataset. Columns with near zero variance will contribute little or nothing to my overall performance and removing them withh reduce my training time as there will be fewer columns to work with.
+Remove zero variance
+```{r}
+# if there are actually non zero variance in my data
+if (length(nearZeroVar(f.dataset)) > 0) {
+ 
+ # remove it.
+  f.dataset <- f.dataset[, -nearZeroVar(f.dataset)]
+}
+print(dim(f.dataset))
+```
+Now our 161 columns have been reduced to 107 without loosing much information in our data. We will now handle the illegal column names and name them properly otherwise, It will be impossible to feed in the data into a machine learning algorithm without having legal names.
+
+With illegal names containing negative signs in-between, or positive signs (as with C++) I get the error.
+"Error in eval(predvars, data, env) : object 'Back-end developer' not found"
+This is accomplished using the "clean_names()" function from the Janitor package.
+```{r}
+summary(f.dataset$OperatingSystem)
+```
+
 
 ```{r}
-rmPCA.worthy <- subset(PCA.worthy, select = -c(ConvertedSalary))
-rmPCA.worthy <- unique(rmPCA.worthy)# remove double entries.
-rme <- scale(rmPCA.worthy)
-#View(rmPCA.worthy)
-#feature selection
-set.seed(111)
-boruta <- Boruta(ConvertedSalary ~., data = PCA.worthy, doTrace = 2)
+f.dataset$OperatingSystem <- as.factor(make.names(f.dataset$OperatingSystem, unique = FALSE, allow_ = TRUE))
+```
 
-# SELECT IMPORTANT VARIABLES ONLY.
-# SECT FIRST FIVE COUNTRIES, ELIMINATE RUBBISH VARIABLES.
+
+```{r}
+summary(f.dataset$OperatingSystem)
 ```
 
 
 
+```{r}
+g.dataset <- clean_names(f.dataset, "upper_camel")
+paste(colnames(f.dataset), " = ", colnames(g.dataset))
+```
 
+
+Our data is ready to be used for machine learning.
+I will not need PCA (This is not an unsupervised learning) nor to scale my data as they are all categorical values. Moreso, I will be using a tree based model known as RandomForest.
+
+```{r}
+# Data Partition
+# I set seed to be able to reproduce same results.
+set.seed(123)
+
+# share it into 80% training data and 20% testing data.
+s.data <- sample(2, nrow(g.dataset), replace = TRUE, prob = c(0.8, 0.2))
+
+train <- g.dataset[s.data==1,]
+test <- g.dataset[s.data==2,]
+
+```
+
+
+Using RandomForest
+(Training time is 28 seconds)
+```{r}
+start.time <- Sys.time()
+# Random Forest
+set.seed(222)
+rf <- randomForest(OperatingSystem~., data=train)
+end.time <- Sys.time()
+print(end.time - start.time)
+```
+
+View our model:
+We can view our model by printing it out, For specifics, the attributes can be used to narrow down further.
+```{r}
+print(rf)
+paste("-------------------------------------------------------------------------------------------------------------")
+attributes(rf)
+```
+
+ntree: the number of trees (default valus is 500) this means that the random forest model I created used 500 different trees and
+mtry: the number of samples randomly tried per split. For regression models, the value is the number of variables divided by 3 while for classification models, the value is square root of the number of variables. In my case, as shown above, mtry = 10
+
+
+#Explaining my atttributes
+
+
+Any of the attributes listed can be viewed using the syntax "rf\$<attribute>" for example "rf$confusion" to see the confusion metrics.
+```{r}
+rf$confusion
+```
+I am not very happy with the model as 48% of the linux users are greatly misclassified. I shall try to improve on the model in order to make it better. For now, let us try predicting by using the model on the training data. This is to help give an idea on the fitting.
+```{r}
+set.seed(232)
+# Prediction & Confusion Matrix - train data
+p1 <- predict(rf, train)
+confusionMatrix(p1, train$OperatingSystem)
+```
+
+When we predict with the training data, there is no misclassification. The 95% Confidence Interval is quite tight. Sensitivity and Specificity are maximum. This is because it is the data that was used to build the model. One has to be careful as sometimes, 100% accuracy on training data might be an overfitting. The problem of machine learning is the ability to tune modeling parameters so appropriately that you do not overfit the model neither will you have a low accuracy with the testing data.
+
+
+Now, let us look at the test data and predict. This is where we will have the true accuracy performance of the model.
+```{r}
+# # Prediction & Confusion Matrix - test data
+p2 <- predict(rf, test)
+confusionMatrix(p2, test$OperatingSystem)
+```
+From the look of things, there is no true positively classified BSD/Unix user. In general, The BSD/Unix users are too few. I suspect that during my splitting, all of them went into the training set and not one was left in the testing set. we can improve this through Cross validation.
+
+The accuracy of our model is 77%
+Kappa is 0.6263 which is substantial.
+Kappa rule of tumb is
+0.81 - 1.00 Almost perfect
+0.61 - 0.80 Substantial
+0.41 - 0.60 Moderate
+0.21 - 0.40 Fair
+0.00 - 0.20 Slight
+     < 0.00 Poor
+     
+https://www.youtube.com/watch?v=BQ1VAZ7jNYQ
+
+
+95% Confidence interval is 0.76 up to 0.78
+Can this be improved upon? 
+Let us try.
+
+I shall begin by finding the most suitable mtry and ntree values.
+```{r}
+# Error rate of Random Forest
+plot(rf)
+```
+From the graph above, the number of trees become really steady as from about 300. this means that more number of trees will not reduce the accur error any further.
+
+Let us tune the model.
+First, I will find the column number of my target variable.
+```{r}
+iv <- which( colnames(train)=="OperatingSystem" )
+iv
+```
+
+```{r}
+set.seed(232)
+t <- tuneRF(train[, -iv], train[, iv],
+       stepFactor = 0.5,
+       plot = TRUE,
+       ntreeTry = 300,
+       trace = TRUE,
+       improve = 0.5)
+```
+
+
+
+From the graph, we get the least percentage of errors when mtry is 10. This is also what was used (default value) during my model training.
+
+Looks like the the Random Forest algorithm already chose the best parameters. It does not look like our model will improve by passing in my mtry and ntree parameters. Let me try.
+```{r}
+rf <- randomForest(OperatingSystem~., data = train,
+                   ntree = 300,
+                   mtry = 10,
+                   importance = TRUE,
+                   proximity = TRUE)
+rf
+```
+
+My accuracy did not improve, The only thing left to try is cross-validation. 
+
+
+I have just tried the cross validation and have waited over 4 hours trying to train the model. I can not continue any further as I wonder if you would have the patience to let it train when you try running my code.
+
+I will try using a different algorithm which is extremely fast when compaired with random forest. It is called the naive bayes.
+
+```{r}
+# Naive Bayes Model
+nbayes <- naive_bayes(OperatingSystem ~ ., data = train, laplace = 1)
+nbayes
+```
+
+
+```{r}
+plot(nbayes)
+```
+
+
+```{r}
+# Confusion Matrix - train data
+p1 <- predict(nbayes, train)
+(tab1 <- table(p1, train$OperatingSystem))
+accuracy <- sum(diag(tab1)) * 100 / sum(tab1)
+ paste("Accuracy of the model with the training data is ", round(accuracy, 2), "%", sep = "")
+
+```
+```{r}
+# Confusion Matrix - test data
+p2 <- predict(nbayes, test)
+(tab2 <- table(p2, test$OperatingSystem))
+ accuracy <- sum(diag(tab2)) * 100 / sum(tab2)
+ paste("Accuracy of the model with the testing data is ", round(accuracy, 2), "%", sep = "")
+
+```
+
+Let me see how I can improve on this.
+```{r}
+attributes(nbayes)
+```
+Using ?naive_bayes, I read up the documentary on the attributes. Sadly, tweaking the parameters of the naive_bayes function mostly favour numeric variables. Since all my variables are categorical in nature, I am only left with cross validation. I will gladly do it this time because naive bayes is very fast. I hope to get a better accuracy by so doing.
+
+Sadly, my solution for cross validation does not work. I would gladly appreciate it if I am able to get a feedback on this.
+```{r, eval=FALSE}
+set.seed(121)
+
+# create control object for cross validation.
+ctrl <- trainControl(method='cv', 
+                    number=10, 
+                    savePredictions = TRUE)
+
+cv.nb <- train(OperatingSystem ~., data = train, method = "nb", trControl= ctrl)
+
+```
+
+PLEASE CONTINUE TO PDF PAGE 56
+
+PLEASE CONTINUE TO PDF page 56
+
+PLEASE CONTINUE TO PDF page 56
+
+PLEASE CONTINUE TO PDF page 56
+
+PLEASE CONTINUE TO PDF page 56
+
+PLEASE CONTINUE TO PDF page 56
+
+
+
+
+
+
+
+Explanation as to why it did not work:
+Here is what I think.
+Cross-validation works by sharing my training data into k folds (in my case, k=10). Perhaps, during the demarcations, some of my data were not duly represented. For instance if I have 1250 observations and I remove the near zero variance variables. Then I share my data into 80:20 ratio (training and testing respectively). This further reduces my training observation to 1000 and 250 for testing. with 10 fold cross validation, my training data for each training further reduces to 900. 
+
+I suspect that reduction in number of observations will once more reintroduce near zero variance in some columns and this is not good for naive bayes since it is built on probability. 
+
+There are two solutions to this. The first is to be more brutal at the point where I removed near zero variance columns just before splitting my data into training and testing. However, I am going to loose more columns which are vital to have a good prediction model.
+
+Already, my dependent variable (OperatingSystem) has a very small category of BSD/Unix users which is less than 3% of the entire respondents. In the end, when cross validation will be splitting, training and doing its job, the chances of certain splits not having BSD/Unix users is very high. The more columns I remove, the lesser the means of teaching the model to explain the dependent variables. I 
+
+The next solution will be to convert the one hot encoded columns into long format. But this will certainly increase the length of my dataset by over 200%
+
+It is worthy of note that cross validation with random forest takes longer but works fine because it is a tree based model. However, it is very slow as it has to learn all the data on all the trees. This is unlike the fast naive bayes algorithm (naive indeed) which refused to do my cross validation for me simply because it is a probability based model and perhaps some of my data were not well represented during the cross validation.
+
+
+# Why Random Forest?
+Random forest is a tree based model with great versatility. It can be used on both classification and regression problems. The main reason why I went straight to it is because it would allow me to view my variables based based on scale of importance. With Random Forest, how much the features contribute towards prediction can easily be seen as shown below.
+
+```{r, fig.height = 10, fig.width = 10}
+varImpPlot(rf)
+```
+
+Random forest is user friendly and straightforward, it has just few tunable hyperparameters of which their dynamic default values is designed to give the best model.
+
+Random forest is also a very handy algorithm since its default hyperparameters often produce a good prediction result. Understanding the hyperparameters is pretty straightforward, and there's also not that many of them. (mtry and ntrees).
+
+One of the biggest problems in machine learning is overfitting, but most of the time this won’t happen thanks to the random forest classifier. If there are enough trees in the forest, the classifier won’t overfit the model.
+
+
+Overfitting is a huge machine learning problem. A random forest model if trained with enough trees is most likely not to overfit the data.
+
+Randon forest however comes with its own disadvantages and limitations. It was very slow to train. When I tried to improve on my model via cross validaion, It failed me as it took plenty of runtime. The random forest being a slow algorithm is ineffective for creating solutions for problems that require speed. This was the reason why I moved on to the very fast naive bayes.
+
+# Naive Bayes
+I fell back on naive bayes for its simplicity and speed after toying with Decision trees and Support Vector Machines (Yes, I did try those too). It t was so fast such that I began to wonder if it actually ran. I was filled with disbelief until I used the model to predict the testing data. It did try to match the random forest but the random forest had more accuracy. Accuracy for random forest was 77% while that of Naive Bayes was 71%. I must confess, although it had a lesser accuracy, Naive bayes did a good job with so much speed and has won my love.
+
+Naive bayes is known to work best with large datasets because of its speed. It can as well perform well with little training data. Although in some cases, Naive bayes has proven to have comparable performance with decision trees and selected neural networks classifiers however, it makes a very huge assumption which makes it naive. It assumes that all features on my dataset are independent of each other. I wish It never made this assumption, It would have been the best machine learning algorithm as its accuracy will increase. Real data always have dependent features. As with my dataset, It is common knowledge that people who use visual studio or power bi use are more likely to use the windows operating system than a mac or linux. Naive bayes does not take this into account. This is why those who apply it try to do so only when the feature importance is the same for all variables as usually is the case with text data. email classification, etc.
+
+
+# Reflections
+
+This ICA was interestingly very challenging. Despite the numerous materials available on the dashboard, I found myself searching for solutions and asking a lot of questions on online platforms like reddit and stackoverflow just to know how to go about the steps. The course on its own gave me an idea of how to go about AI and machine learning. I became aware of the principles however, It was so tough replicating what was learnt on a real dataset.
+
+For instance, during lab sessions, built-in data in R such as cars dataset, iris dataset, etc. is always used. I felt as though I understood all that was taught during the lab sessions. I was very mistaken because, real data was different. It had more cleaning and more manipulation. It is bigger, more disorganised than the built-in datasets we practised with. This made me research a lot, having had an idea of what was required of me in the course, I knew exactly what to do so I had to search and find how it was done whilst consulting my lecture materials as well.
+
+The online community support is huge and quite helpful. Most of my questions have been asked and have been answered before by different people. Sometimes, I would have difficulty finding a function to do what I want so I had to learn how to write functions myself. I regret that the functions I wrote were slow because it entailed iterating through a dataset one by one. I wished there was a way I could make them run faster and more memory efficient. I did learn about functional tests in my python module however, I did not have enough time to implement that here. Using the knowledge obtained from my Python module, I was able to backup my progress using git. You can clone the repository using this link https://github.com/Chuukwudi/My-ICA-on-R.git
+
+
+One of my biggest challenges so far in this ICA was in data cleaning and visualisation. Some columns in my data was formatted in a very terrible manner. Writing functions to clean the data made me to re-visit and familiarise myself with the basics. I came to a lot of dead-ends. Initially, My plan in this ICA was to predict salaries and incomes based on other variables. I discovered late that that would have been a disaster as there are lots of different factors affecting salaries but not reflecting in the data. I found out how difficult it was to predict continuous variable using categorical data. Even after I one hot encoded all my variables and made them as continous as they can be, I then found out that there was little or no correlation between the salaries and the variables. I had the option to encode the salaries as categorical variables using intervals but then..an idea occurred to me. Why not put an end to the online battle of Operating systems once and for all? Could there be anything causing people to prefer one operating system over another? Could it be their years of experience, the platforms, framworks and languages they work with? Could it be just a trend? this furthermore kindled my interest.
+
+Some of those functions took me days to write. There were challenges and as soon as I solved one, another immediately sprung up. It felt so rewarding after solving each challenge I encounter. I remain very grateful for this experience as I am more confident with kaggle as opposed to the first few moments I started visiting the website. When I first heard about kaggle, it looked so alien to me. But now, I have the ability to go through notebooks of other people and watch how some problems have been approached. 
+
+My greatest help came from reading documentations on functions by using the question mark followed by the function name. I could read about a whole library by using double question marks instead. This served as a dictionary and made using the libraries easy.
+
+# Future Plans
+After having spent some time with R, I have fallen in love with the language. I plan to participate in kaggle competitions and earn myself a good reputation. This 
