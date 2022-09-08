@@ -7,4 +7,4 @@ Using data from the 2018 Stackoverflow Development Survey, I  performed Explora
 
 In the end, using these factors mentioned above as features, I applied machine learning algorithms like Random Forest and Naive Bayes to predict what type of operating system a developer is likely to use while using cross-validation to optimise my results.
 
-THe result is usefull to create the targetted ads.
+The result proves useful for the targetted ads.
